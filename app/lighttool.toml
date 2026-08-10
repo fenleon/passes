@@ -1,0 +1,13 @@
+[tool]
+id = "com.lightphone.passes"
+label = "Passes"
+versionCode = 2
+versionName = "0.2.0"
+# The tool scans QR codes itself with the SDK's LightQrCodeScanner; the
+# permission is granted at install (adb `pm grant` on the emulator; Light's
+# installer on a real LP3). The companion (:server) hosts the SDK service and
+# the pass methods. Point serverPackage at com.lightos on a real LP3 once
+# Light ships these methods there.
+permissions = ["android.permission.CAMERA"]
+serverPackage = "com.lightphone.passes.server"
+orientation = "portrait"
