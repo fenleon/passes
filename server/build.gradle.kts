@@ -23,14 +23,14 @@ android {
         applicationId = "com.lightphone.passes.server"
         minSdk = 34
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("lightsdkDev")
         }
         getByName("debug") {
@@ -52,9 +52,21 @@ kotlin {
 
 dependencies {
     // SDK modules come from the included ../light-sdk build (see settings.gradle.kts).
+    // The status screen's SDK deps pull the SDK's CameraX + ML Kit barcode
+    // scanner, which this companion never uses — prune it (saves ~20 MB of
+    // native libbarhopper_v3.so). Exclusions are per-subtree: both direct
+    // deps that reach it must exclude, or it leaks back in.
     implementation(libs.sdk.server)   // LightSdkServer + LightSdkService (the binder)
-    implementation(libs.sdk.client)   // client runtime pieces the server reuses
-    implementation(libs.sdk.ui)       // Light design system for the status screen
+    implementation(libs.sdk.client) { // client runtime pieces the server reuses
+        exclude(group = "com.google.mlkit")
+        exclude(group = "androidx.camera")
+        exclude(group = "com.google.android.gms")
+    }
+    implementation(libs.sdk.ui) {     // Light design system for the status screen
+        exclude(group = "com.google.mlkit")
+        exclude(group = "androidx.camera")
+        exclude(group = "com.google.android.gms")
+    }
     implementation(libs.compose.activity)
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines)

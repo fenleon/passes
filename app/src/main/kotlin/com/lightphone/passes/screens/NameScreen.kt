@@ -20,13 +20,13 @@ import com.thelightphone.sdk.ui.LightThemeTokens
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-/** What this name editor is doing: naming a new code or renaming a saved one. */
-sealed interface NameMode {
-    data class Create(val data: String, val rawData: String?, val type: String) : NameMode
-    data class Rename(val passId: String, val currentName: String) : NameMode
-}
-
-class NameViewModel(private val mode: NameMode) : LightViewModel<Boolean>() {
+/** Names a newly scanned or typed code before it is saved as a new pass. */
+class NameViewModel(
+    private val data: String,
+    private val rawData: String?,
+    private val type: String,
+    private val typed: Boolean,
+) : LightViewModel<Boolean>() {
 
     val saving = MutableStateFlow(false)
 
@@ -36,12 +36,7 @@ class NameViewModel(private val mode: NameMode) : LightViewModel<Boolean>() {
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             saving.value = true
-            val ok = when (mode) {
-                is NameMode.Create ->
-                    PassesClient.addPass(trimmed, mode.data, mode.rawData, mode.type)
-                is NameMode.Rename ->
-                    PassesClient.renamePass(mode.passId, trimmed)
-            }
+            val ok = PassesClient.addPass(trimmed, data, rawData, type, typed)
             saving.value = false
             if (ok) screen.goBack(true)
             // On a failed save stay on the editor; the user can submit again.
@@ -49,32 +44,45 @@ class NameViewModel(private val mode: NameMode) : LightViewModel<Boolean>() {
     }
 }
 
+/**
+ * The name editor for a new pass, in the same Notes-compose style as the edit
+ * panel's text fields (SAVE in the top bar, small bottom-anchored text,
+ * keyboard flush at the bottom).
+ */
 class NameScreen(
     sealedActivity: SealedLightActivity,
-    private val mode: NameMode,
+    private val data: String,
+    private val rawData: String?,
+    private val type: String,
+    private val typed: Boolean,
 ) : LightScreen<Boolean, NameViewModel>(sealedActivity) {
 
     override val viewModelClass: Class<NameViewModel>
         get() = NameViewModel::class.java
 
-    override fun createViewModel(): NameViewModel = NameViewModel(mode)
+    override fun createViewModel(): NameViewModel = NameViewModel(data, rawData, type, typed)
 
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
         val keyboardOptionsFlow = rememberKeyboardOptions()
-        val initial = (mode as? NameMode.Rename)?.currentName.orEmpty()
-        val textState = rememberTextFieldState(initial)
+        val textState = rememberTextFieldState("")
 
         LightTheme(colors = themeColors) {
             LightTextInputEditor(
-                title = if (mode is NameMode.Rename) "Rename Pass" else "Name Pass",
+                title = "Name Pass",
                 state = textState,
                 keyboardOptionsFlow = keyboardOptionsFlow,
                 onSubmit = { result -> viewModel.save(result.toString(), this@NameScreen) },
                 onBack = { goBack() },
                 modifier = Modifier.background(LightThemeTokens.colors.background),
+                submitLabel = "SAVE",
+                submitInTopBar = true,
+                topBarSubmitLabel = "SAVE",
+                bottomAligned = true,
+                submitOnReturn = true,
                 initialCaps = true,
+                singleLine = true,
             )
         }
     }

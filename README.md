@@ -12,14 +12,28 @@ Forked from [vandamd/passes](https://github.com/vandamd/passes) (MIT).
 
 ## Features
 
-- Store a code by **scanning a QR code** with the camera, or by **typing** it
-  on the LP3 keyboard (typed codes are stored as QR).
+- Store a code by **scanning** it with the camera (QR, Aztec, PDF417,
+  Data Matrix, Code 128, EAN/UPC) or by **typing** it on the LP3 keyboard
+  (typed codes are stored as QR).
+- **Stack codes** under one name — add another code to an existing pass with
+  the `+` on the barcode panel; swipe or arrow between them.
 - Show a pass on a white card, ready to scan; **tap the code to expand it
-  full-screen** (back button only).
-- Rename (tap the pass name), **remove** from the pass screen.
+  full-screen**.
+- **Details panel** per pass: issuer, date range, time range, location, notes
+  — shared by all the pass's stacked codes — plus a read-only **Code** row
+  showing each code's decoded payload.
+- **Edit** any pass: rename, fill or clear the details, delete a single code.
 - All stored codes render at full size — the renderer supports 13 barcode
   formats (QR Code, Aztec, EAN-13, EAN-8, PDF417, UPC-E, Data Matrix,
-  Code 39, Code 93, ITF-14, Codabar, Code 128, UPC-A).
+  Code 39, Code 93, ITF-14, Codabar, Code 128, UPC-A); Aztec/PDF417 keep their
+  raw bytes so ticketing codes reproduce 1:1.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Passes list](screenshots/home.png) | ![Barcode stack](screenshots/barcode-stacked.png) |
+| ![Details](screenshots/details.png) | ![Scanner](screenshots/scanner.png) |
 
 ## Build
 

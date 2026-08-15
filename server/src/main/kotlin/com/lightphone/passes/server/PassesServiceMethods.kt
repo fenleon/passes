@@ -20,9 +20,22 @@ object PassesServiceMethods {
                 LightServiceMethod.GetPasses.Pass(
                     id = pass.id,
                     name = pass.name,
-                    data = pass.data,
-                    rawData = pass.rawData,
-                    type = pass.type,
+                    codes = pass.codes.map { code ->
+                        LightServiceMethod.GetPasses.Code(
+                            id = code.id,
+                            data = code.data,
+                            rawData = code.rawData,
+                            type = code.type,
+                            typed = code.typed,
+                        )
+                    },
+                    issuer = pass.issuer,
+                    date = pass.date,
+                    endDate = pass.endDate,
+                    startTime = pass.startTime,
+                    endTime = pass.endTime,
+                    location = pass.location,
+                    notes = pass.notes,
                 )
             }
             LightResult.Success(
@@ -34,30 +47,58 @@ object PassesServiceMethods {
 
         LightServiceMethod.AddPass.id -> {
             val request = LightServiceMethod.AddPass.decodeRequest(payload!!)
-            PassRepository.add(request.name, request.data, request.rawData, request.type)
+            PassRepository.add(
+                request.name,
+                request.data,
+                request.rawData,
+                request.type,
+                request.typed,
+            )
             LightResult.Success(LightServiceMethod.AddPass.encodeResponse(Unit))
         }
 
-        LightServiceMethod.UpdatePassName.id -> {
-            val request = LightServiceMethod.UpdatePassName.decodeRequest(payload!!)
-            PassRepository.rename(request.passId, request.name)
-            LightResult.Success(LightServiceMethod.UpdatePassName.encodeResponse(Unit))
+        LightServiceMethod.AddCode.id -> {
+            val request = LightServiceMethod.AddCode.decodeRequest(payload!!)
+            PassRepository.addCode(
+                request.passId,
+                request.data,
+                request.rawData,
+                request.type,
+                request.typed,
+            )
+            LightResult.Success(LightServiceMethod.AddCode.encodeResponse(Unit))
         }
 
-        LightServiceMethod.DeletePass.id -> {
-            val request = LightServiceMethod.DeletePass.decodeRequest(payload!!)
-            PassRepository.delete(request.passId)
-            LightResult.Success(LightServiceMethod.DeletePass.encodeResponse(Unit))
+        LightServiceMethod.UpdatePass.id -> {
+            val request = LightServiceMethod.UpdatePass.decodeRequest(payload!!)
+            PassRepository.update(
+                request.passId,
+                request.name,
+                request.issuer,
+                request.date,
+                request.endDate,
+                request.startTime,
+                request.endTime,
+                request.location,
+                request.notes,
+            )
+            LightResult.Success(LightServiceMethod.UpdatePass.encodeResponse(Unit))
+        }
+
+        LightServiceMethod.DeleteCode.id -> {
+            val request = LightServiceMethod.DeleteCode.decodeRequest(payload!!)
+            PassRepository.deleteCode(request.codeId)
+            LightResult.Success(LightServiceMethod.DeleteCode.encodeResponse(Unit))
         }
 
         LightServiceMethod.GetBarcode.id -> {
             val request = LightServiceMethod.GetBarcode.decodeRequest(payload!!)
-            val pass = PassRepository.get(request.passId)
-                ?: return LightResult.Error(LightResult.ErrorCode.Unknown, "pass not found")
-            val png = BarcodeRenderer.renderPng(pass.type, pass.data, pass.rawData, request.width)
+            val code = PassRepository.codeFor(request.codeId)
+                ?: return LightResult.Error(LightResult.ErrorCode.Unknown, "code not found")
+            val png = BarcodeRenderer.renderPng(code.type, code.data, code.rawData, request.width)
                 ?: return LightResult.Error(
                     LightResult.ErrorCode.Unknown,
-                    "unable to render ${pass.type} barcode",
+                    "unable to render ${code.type} barcode",
                 )
             LightResult.Success(
                 LightServiceMethod.GetBarcode.encodeResponse(

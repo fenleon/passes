@@ -3,6 +3,7 @@ package com.lightphone.passes.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -106,15 +107,11 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                             )
                         }
                         else -> LightScrollView {
+                            // One row per pass; stacked codes under the name show
+                            // a count to the right. The companion stores the list
+                            // alphabetically, so the rows already are.
                             passes.forEach { pass ->
-                                LightText(
-                                    text = pass.name,
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .lightClickable(onClick = { openDetail(pass) })
-                                        .padding(horizontal = 24.dp, vertical = 14.dp),
-                                )
+                                PassRow(pass, pass.codes.size) { openBarcode(pass) }
                             }
                         }
                     }
@@ -134,8 +131,8 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
         }
     }
 
-    private fun openDetail(pass: Pass) {
-        navigateTo(screenFactory = { DetailScreen(it, pass) })
+    private fun openBarcode(pass: Pass) {
+        navigateTo(screenFactory = { BarcodeScreen(it, pass) })
     }
 
     private fun openScanner() {
@@ -151,4 +148,30 @@ private fun StatusText(text: String) {
         lighten = true,
         modifier = Modifier.padding(24.dp),
     )
+}
+
+/** One pass row: the name, and the stacked-code count ("n") to the right when
+ *  more than one code sits under the name. */
+@Composable
+private fun PassRow(pass: Pass, count: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightText(
+            text = pass.name,
+            variant = LightTextVariant.Copy,
+            modifier = Modifier.weight(1f),
+        )
+        if (count > 1) {
+            LightText(
+                text = count.toString(),
+                variant = LightTextVariant.Detail,
+                lighten = true,
+            )
+        }
+    }
 }
