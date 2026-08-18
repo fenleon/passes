@@ -1,9 +1,9 @@
-package com.lightphone.passes.server
+package com.lightphone.passes
 
 import java.util.Base64
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 /**
  * Host-side coverage of the render-and-verify pipeline: every supported format
@@ -32,7 +32,7 @@ class BarcodeRasterTest {
     fun everyFormatRendersAndVerifiesAtDisplayWidth() {
         for ((type, data) in samples) {
             val raster = BarcodeRaster.raster(type, data, null, targetWidthPx = 1079)
-            assertNotNull("$type should rasterize + verify", raster)
+            assertNotNull(raster, "$type should rasterize + verify")
         }
     }
 
@@ -40,7 +40,7 @@ class BarcodeRasterTest {
     fun everyFormatRendersAndVerifiesAtDefaultWidth() {
         for ((type, data) in samples) {
             val raster = BarcodeRaster.raster(type, data, null)
-            assertNotNull("$type should rasterize + verify at default width", raster)
+            assertNotNull(raster, "$type should rasterize + verify at default width")
         }
     }
 

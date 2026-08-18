@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
  * In-memory cache of rendered code bitmaps, keyed by code id — shared by the
  * barcode panel and the fullscreen view so flipping between codes (or opening
  * a code full-screen) never re-fetches, re-decodes, or re-flashes
- * "Generating…". The companion additionally caches the PNGs by payload +
+ * "Generating…". BarcodeRenderer additionally caches the PNGs by payload +
  * width, so even a cold process renders each code only once.
  */
 object BarcodeCache {

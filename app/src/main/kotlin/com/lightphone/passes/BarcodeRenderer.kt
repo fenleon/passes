@@ -1,4 +1,4 @@
-package com.lightphone.passes.server
+package com.lightphone.passes
 
 import android.graphics.Bitmap
 import android.util.LruCache

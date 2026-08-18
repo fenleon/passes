@@ -1,4 +1,4 @@
-package com.lightphone.passes.server
+package com.lightphone.passes
 
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap

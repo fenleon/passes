@@ -23,18 +23,15 @@ dependencyResolutionManagement {
 rootProject.name = "passes"
 
 include(":app")
-include(":server")
 
-// Passes is a two-part project: `:app` is the real LightOS tool
-// (lighttool.toml + the light-sdk tool plugin, LightScreen UI) and `:server` is
-// its companion — a plain Android app hosting the SDK's LightSdkService + the
-// pass methods, the barcode renderer, the camera scanner, and URL opening, i.e.
-// everything the tool runtime forbids. Both consume the SDK as an included build.
+// Passes is a single-module project (experiment, 2026-08-18): `:app` is the
+// real LightOS tool (lighttool.toml + the light-sdk tool plugin, LightScreen
+// UI) with the storage + barcode renderer in-process — no companion APK. It
+// consumes the SDK as an included build.
 includeBuild("../light-sdk") {
     dependencySubstitution {
         substitute(module("com.thelightphone:sdk-ui")).using(project(":sdk:ui"))
         substitute(module("com.thelightphone:sdk-client")).using(project(":sdk:client"))
-        substitute(module("com.thelightphone:sdk-server")).using(project(":sdk:server"))
         substitute(module("com.thelightphone:sdk-shared")).using(project(":sdk:shared"))
     }
 }

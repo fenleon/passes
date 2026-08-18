@@ -1,13 +1,16 @@
 [tool]
 id = "com.lightphone.passes"
 label = "Passes"
-versionCode = 2
-versionName = "0.2.0"
-# The tool scans QR codes itself with the SDK's LightQrCodeScanner; the
-# permission is granted at install (adb `pm grant` on the emulator; Light's
-# installer on a real LP3). The companion (:server) hosts the SDK service and
-# the pass methods. Point serverPackage at com.lightos on a real LP3 once
-# Light ships these methods there.
-permissions = ["android.permission.CAMERA"]
-serverPackage = "com.lightphone.passes.server"
+versionCode = 75
+versionName = "0.4.0"
+# The tool scans QR codes itself with the SDK's LightQrCodeScanner; the camera
+# permission is requested at runtime through the serverPackage's LightSdkService
+# (the SDK's scanner checks via the GetPermission RPC — it never checks
+# locally). Single-module build (2026-08-18): storage + barcode rendering are
+# in-process, so the ONLY server calls left are the standard SDK methods
+# (permission check/request, key forwarding) — point them at the platform's own
+# server instead of a companion: com.lightos on a real LP3 (LightOS hosts the
+# SDK service; verified 2026-08-18). The emulator's LightOS server is
+# com.thelightphone.sdk.emulator — flip to that when testing scanning there.
+serverPackage = "com.lightos"
 orientation = "portrait"

@@ -136,7 +136,12 @@ private fun FilledDetails(pass: Pass) {
         listOfNotNull(
             pass.date?.takeIf { it.isNotBlank() },
             pass.endDate?.takeIf { it.isNotBlank() },
-        ).joinToString(" – ").takeIf { it.isNotEmpty() }?.let { add("Date" to it) }
+        ).joinToString(" – ").takeIf { it.isNotEmpty() }?.let { range ->
+            // A date range (both fields filled) is labeled "Dates".
+            add(
+                (if (pass.date.isNullOrBlank() || pass.endDate.isNullOrBlank()) "Date" else "Dates") to range,
+            )
+        }
         val time = listOfNotNull(
             pass.startTime?.takeIf { it.isNotBlank() },
             pass.endTime?.takeIf { it.isNotBlank() },

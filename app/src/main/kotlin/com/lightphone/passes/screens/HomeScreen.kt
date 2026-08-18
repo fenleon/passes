@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import com.lightphone.passes.Pass
 import com.lightphone.passes.PassesClient
+import com.lightphone.passes.PassRepository
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -27,13 +29,13 @@ import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
+import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -50,28 +52,21 @@ class HomeViewModel : LightViewModel<Unit>() {
     fun refresh() {
         viewModelScope.launch {
             loading.value = true
-            var result = PassesClient.getPasses()
-            // A cold start can bind before the companion is ready; retry briefly
-            // so the list doesn't flash "no passes" over a real one.
-            repeat(EMPTY_REFRESH_RETRIES) {
-                if (result.isNotEmpty()) return@repeat
-                delay(EMPTY_REFRESH_DELAY_MS)
-                result = PassesClient.getPasses()
-            }
-            passes.value = result
+            passes.value = PassesClient.getPasses()
             loading.value = false
         }
-    }
-
-    private companion object {
-        const val EMPTY_REFRESH_RETRIES = 4
-        const val EMPTY_REFRESH_DELAY_MS = 500L
     }
 }
 
 @InitialScreen
 class HomeScreen(sealedActivity: SealedLightActivity) :
     LightScreen<Unit, HomeViewModel>(sealedActivity) {
+
+    // Home is always the entry screen — init the store here (filesDir from the
+    // SDK's sandboxed lightContext; single-module build, no companion).
+    init {
+        PassRepository.init(lightContext.filesDir)
+    }
 
     override val viewModelClass: Class<HomeViewModel>
         get() = HomeViewModel::class.java
@@ -90,6 +85,14 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
+                // A thin top bar spans the top of the home list — the chats
+                // pattern (2-unit black strip, no label): content starts below
+                // it, the app name is redundant on a single-purpose device.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2f.gridUnitsAsDp()),
+                )
                 Box(modifier = Modifier.weight(1f)) {
                     when {
                         loading && passes.isEmpty() -> StatusText("Loading…")
@@ -108,7 +111,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                         }
                         else -> LightScrollView {
                             // One row per pass; stacked codes under the name show
-                            // a count to the right. The companion stores the list
+                            // a count to the right. The repository stores the list
                             // alphabetically, so the rows already are.
                             passes.forEach { pass ->
                                 PassRow(pass, pass.codes.size) { openBarcode(pass) }
@@ -116,6 +119,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                         }
                     }
                 }
+                // ADD NEW sits centered in the bottom bar.
                 LightBottomBar(
                     modifier = Modifier.navigationBarsPadding(),
                     items = listOf(

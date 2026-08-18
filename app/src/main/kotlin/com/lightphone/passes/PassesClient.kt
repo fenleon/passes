@@ -1,40 +1,54 @@
 package com.lightphone.passes
 
-import com.thelightphone.sdk.callRemoteServiceMethod
-import com.thelightphone.sdk.shared.LightResult
 import com.thelightphone.sdk.shared.LightServiceMethod
-import com.thelightphone.sdk.shared.getOrNull
 
-/** A pass as served by the companion: a name, shared details, and stacked codes. */
+/** A pass as stored: a name, shared details, and stacked codes. */
 typealias Pass = LightServiceMethod.GetPasses.Pass
 
 /** One barcode of a pass. */
 typealias Code = LightServiceMethod.GetPasses.Code
 
 /**
- * Thin RPC client for the Passes methods. Everything privileged (storage,
- * barcode rendering, camera, URL opening) lives in the companion (:server);
- * the tool only renders state fetched over the SDK binder.
+ * The single-module (2026-08-18) data facade: storage + barcode rendering now
+ * live in-process (PassRepository + BarcodeRenderer), replacing the old
+ * companion RPC. The public API is unchanged so the screens didn't move; the
+ * methods are still suspend to match their call sites.
  */
 object PassesClient {
 
     suspend fun getPasses(): List<Pass> =
-        callRemoteServiceMethod(LightServiceMethod.GetPasses, Unit)
-            .getOrNull()?.passes.orEmpty()
+        PassRepository.passes.value.map { pass ->
+            Pass(
+                id = pass.id,
+                name = pass.name,
+                codes = pass.codes.map { code ->
+                    Code(
+                        id = code.id,
+                        data = code.data,
+                        rawData = code.rawData,
+                        type = code.type,
+                        typed = code.typed,
+                    )
+                },
+                issuer = pass.issuer,
+                date = pass.date,
+                endDate = pass.endDate,
+                startTime = pass.startTime,
+                endTime = pass.endTime,
+                location = pass.location,
+                notes = pass.notes,
+            )
+        }
 
     /** Creates a new pass with its first code. */
     suspend fun addPass(name: String, data: String, rawData: String?, type: String, typed: Boolean = false): Boolean =
-        callRemoteServiceMethod(
-            LightServiceMethod.AddPass,
-            LightServiceMethod.AddPass.Request(name, data, rawData, type, typed),
-        ) is LightResult.Success
+        PassRepository.add(name, data, rawData, type, typed) != null
 
     /** Stacks another code under an existing pass (the barcode panel's "+"). */
-    suspend fun addCode(passId: String, data: String, rawData: String?, type: String, typed: Boolean = false): Boolean =
-        callRemoteServiceMethod(
-            LightServiceMethod.AddCode,
-            LightServiceMethod.AddCode.Request(passId, data, rawData, type, typed),
-        ) is LightResult.Success
+    suspend fun addCode(passId: String, data: String, rawData: String?, type: String, typed: Boolean = false): Boolean {
+        PassRepository.addCode(passId, data, rawData, type, typed)
+        return true
+    }
 
     suspend fun updatePass(
         passId: String,
@@ -46,34 +60,19 @@ object PassesClient {
         endTime: String? = null,
         location: String? = null,
         notes: String? = null,
-    ): Boolean =
-        callRemoteServiceMethod(
-            LightServiceMethod.UpdatePass,
-            LightServiceMethod.UpdatePass.Request(
-                passId,
-                name,
-                issuer,
-                date,
-                endDate,
-                startTime,
-                endTime,
-                location,
-                notes,
-            ),
-        ) is LightResult.Success
+    ): Boolean {
+        PassRepository.update(passId, name, issuer, date, endDate, startTime, endTime, location, notes)
+        return true
+    }
 
     /** Deletes one stacked code from its pass (the last code removes the pass). */
     suspend fun deleteCode(codeId: String) {
-        callRemoteServiceMethod(
-            LightServiceMethod.DeleteCode,
-            LightServiceMethod.DeleteCode.Request(codeId),
-        )
+        PassRepository.deleteCode(codeId)
     }
 
-    /** A code's barcode as PNG bytes (rendered by the companion at [width] px). */
-    suspend fun barcodePng(codeId: String, width: Int = 960): ByteArray? =
-        callRemoteServiceMethod(
-            LightServiceMethod.GetBarcode,
-            LightServiceMethod.GetBarcode.Request(codeId, width),
-        ).getOrNull()?.png
+    /** A code's barcode as PNG bytes (rendered in-process at [width] px). */
+    suspend fun barcodePng(codeId: String, width: Int = 960): ByteArray? {
+        val code = PassRepository.codeFor(codeId) ?: return null
+        return BarcodeRenderer.renderPng(code.type, code.data, code.rawData, width)
+    }
 }

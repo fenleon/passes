@@ -1,7 +1,7 @@
-package com.lightphone.passes.server
+package com.lightphone.passes
 
-import android.content.Context
 import com.thelightphone.sdk.shared.lightJson
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,40 +43,34 @@ data class StoredPass(
 )
 
 /**
- * The pass list: an in-memory copy with write-through JSON in SharedPreferences
- * (list order = display order). All mutators are synchronized — the binder
- * dispatches on arbitrary threads. v1 stored flat passes (one code each);
- * v2 nests codes under a pass so stacked passes share their details.
+ * The pass list: an in-process copy with write-through JSON in a file under the
+ * tool's sandboxed filesDir (single-module experiment 2026-08-18 — the old
+ * companion's SharedPreferences store lived in a separate package and is
+ * unreachable from here, so storage starts fresh; the v1 flat-list migration is
+ * gone with it). List order = display order. All mutators are synchronized —
+ * the UI may call from any thread.
  */
 object PassRepository {
 
-    private const val PREFS_NAME = "passes"
-    private const val STORAGE_KEY = "passes_v2"
-    private const val LEGACY_STORAGE_KEY = "passes_v1"
+    private const val STORAGE_FILE = "passes.json"
 
     private val passesSerializer = ListSerializer(StoredPass.serializer())
 
-    private lateinit var appContext: Context
+    private var storageFile: File? = null
     private val mutablePasses = MutableStateFlow<List<StoredPass>>(emptyList())
 
     val passes: StateFlow<List<StoredPass>> = mutablePasses.asStateFlow()
 
-    fun init(context: Context) {
-        appContext = context.applicationContext
-        val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val stored = prefs.getString(STORAGE_KEY, null)
+    /** Idempotent — call once from the entry screen before first use. */
+    fun init(filesDir: File) {
+        if (storageFile != null) return
+        storageFile = File(filesDir, STORAGE_FILE)
+        val stored = storageFile
+            ?.takeIf { it.isFile }
+            ?.readText()
             ?.let { runCatching { lightJson.decodeFromString(passesSerializer, it) }.getOrNull() }
         if (stored != null) {
             mutablePasses.value = stored.alphabetical()
-        } else {
-            // First run on v2: migrate the flat v1 list (passes sharing a name
-            // become one pass with stacked codes; details come from the first)
-            // and persist it so the migration is one-time.
-            val migrated = migrateFromV1(prefs.getString(LEGACY_STORAGE_KEY, null))
-            if (migrated != null) {
-                mutablePasses.value = migrated
-                persist()
-            }
         }
     }
 
@@ -184,59 +178,12 @@ object PassRepository {
     private fun List<StoredPass>.alphabetical(): List<StoredPass> =
         sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
-    /** The v1 flat record (one code per pass) — kept for the one-time migration. */
-    @Serializable
-    private data class LegacyPass(
-        val id: String,
-        val name: String,
-        val data: String,
-        val rawData: String? = null,
-        val type: String,
-        val typed: Boolean = false,
-        val issuer: String? = null,
-        val date: String? = null,
-        val endDate: String? = null,
-        val startTime: String? = null,
-        val endTime: String? = null,
-        val location: String? = null,
-        val notes: String? = null,
-    )
-
-    private fun migrateFromV1(raw: String?): List<StoredPass>? {
-        if (raw == null) return null
-        val flat = runCatching {
-            lightJson.decodeFromString(ListSerializer(LegacyPass.serializer()), raw)
-        }.getOrNull() ?: return null
-        return flat.groupBy { it.name }.map { (name, members) ->
-            val first = members.first()
-            StoredPass(
-                id = first.id,
-                name = name,
-                codes = members.map {
-                    StoredCode(
-                        id = it.id,
-                        data = it.data,
-                        rawData = it.rawData,
-                        type = it.type,
-                        typed = it.typed,
-                    )
-                },
-                issuer = first.issuer,
-                date = first.date,
-                endDate = first.endDate,
-                startTime = first.startTime,
-                endTime = first.endTime,
-                location = first.location,
-                notes = first.notes,
-            )
-        }
-    }
-
     private fun persist() {
+        val file = storageFile ?: return
         val json = lightJson.encodeToString(passesSerializer, mutablePasses.value)
-        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(STORAGE_KEY, json)
-            .commit()
+        // Write-then-rename so a crash mid-write can't corrupt the store.
+        val tmp = File(file.parentFile, "$STORAGE_FILE.tmp")
+        tmp.writeText(json)
+        tmp.renameTo(file)
     }
 }

@@ -12,14 +12,14 @@ compose-activity = { module = "androidx.activity:activity-compose", version.ref 
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.16.0" }
-junit = { module = "junit:junit", version = "4.13.2" }
+# kotlin-test (JUnit backend) is the only test framework the tool plugin allows.
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 # Consumed from the included ../light-sdk build via dependencySubstitution;
 # versions must match light-sdk/gradle.properties sdkGroup/sdkVersion.
 sdk-ui = { module = "com.thelightphone:sdk-ui", version.ref = "sdk" }
 sdk-client = { module = "com.thelightphone:sdk-client", version.ref = "sdk" }
-sdk-server = { module = "com.thelightphone:sdk-server", version.ref = "sdk" }
 sdk-shared = { module = "com.thelightphone:sdk-shared", version.ref = "sdk" }
-# Companion-only: barcode rendering (the tool may not use these).
+# In-process barcode rendering (single-module build since 2026-08-18) — ZXing is on the tool plugin's allowlist.
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 [plugins]

@@ -53,6 +53,11 @@ kotlin {
 
 dependencies {
     // SDK modules come from the included ../light-sdk build (see settings.gradle.kts).
-    implementation(libs.sdk.client)   // LightScreen, LightActivity, callRemoteServiceMethod
+    implementation(libs.sdk.client)   // LightScreen, LightActivity
     implementation(libs.kotlinx.coroutines)
+    // Storage + barcode rendering moved in-process from the (now merged) :server
+    // module — ZXing is on the tool plugin's allowlist.
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zxing.core)
+    testImplementation(libs.kotlin.test)
 }

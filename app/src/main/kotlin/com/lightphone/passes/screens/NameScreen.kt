@@ -5,18 +5,20 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewModelScope
 import com.lightphone.passes.PassesClient
+import com.thelightphone.lp3Keyboard.ui.KeyboardOptions
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
-import com.thelightphone.sdk.rememberKeyboardOptions
 import com.thelightphone.sdk.ui.LightTextInputEditor
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
+import com.thelightphone.sdk.ui.scaledForScreenHeight
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -46,8 +48,8 @@ class NameViewModel(
 
 /**
  * The name editor for a new pass, in the same Notes-compose style as the edit
- * panel's text fields (SAVE in the top bar, small bottom-anchored text,
- * keyboard flush at the bottom).
+ * panel's text fields (SAVE bottom-center below the keyboard, bottom-anchored
+ * text, keyboard flush at the bottom) — no mic/emoji keys, capitalized start.
  */
 class NameScreen(
     sealedActivity: SealedLightActivity,
@@ -65,7 +67,22 @@ class NameScreen(
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
-        val keyboardOptionsFlow = rememberKeyboardOptions()
+        // Fixed options — no remote fetch, so the mic/emoji keys stay off even
+        // when the platform server would enable them.
+        val keyboardOptionsFlow = remember {
+            MutableStateFlow(
+                KeyboardOptions(
+                    emojis = emptyList(),
+                    displayReturn = true,
+                    displayVoice = false,
+                    enableKeyAnimation = true,
+                    swipeEnabled = false,
+                ),
+            )
+        }
+        val inputStyle = LightThemeTokens.typography.heading
+            .copy(color = LightThemeTokens.colors.content)
+            .scaledForScreenHeight()
         val textState = rememberTextFieldState("")
 
         LightTheme(colors = themeColors) {
@@ -77,12 +94,11 @@ class NameScreen(
                 onBack = { goBack() },
                 modifier = Modifier.background(LightThemeTokens.colors.background),
                 submitLabel = "SAVE",
-                submitInTopBar = true,
-                topBarSubmitLabel = "SAVE",
                 bottomAligned = true,
                 submitOnReturn = true,
                 initialCaps = true,
                 singleLine = true,
+                inputTextStyle = inputStyle,
             )
         }
     }
