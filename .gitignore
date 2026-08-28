@@ -22,3 +22,6 @@ captures/
 
 # Agent instructions (kept local, not published)
 AGENTS.md
+
+# Old companion-era device backups (never publish)
+backups/

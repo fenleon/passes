@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +18,6 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
-import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
@@ -36,7 +34,7 @@ import kotlinx.coroutines.launch
 /**
  * The details panel: the pass's name and the fields that are filled (issuer,
  * date, end date, time, location, notes) — shared by all the pass's stacked
- * codes. EDIT lives in the bottom bar's center (the only edit entry point).
+ * codes. EDIT sits in the top bar's right slot (the only edit entry point).
  * Result: `true` when the whole pass was deleted (the barcode panel pops
  * itself); deleting just one code keeps this panel (it refreshes).
  */
@@ -57,8 +55,6 @@ class DetailsViewModel(private val passId: String, initialPass: Pass) :
 class DetailsScreen(
     sealedActivity: SealedLightActivity,
     private val pass: Pass,
-    /** Which stacked code was being viewed (anchors the edit title "Edit Pass x of n"). */
-    private val currentCodeId: String? = null,
 ) : LightScreen<Boolean, DetailsViewModel>(sealedActivity) {
 
     override val viewModelClass: Class<DetailsViewModel>
@@ -86,7 +82,17 @@ class DetailsScreen(
                         onClick = { goBack() },
                         contentDescription = "Back to ${pass.name}",
                     ),
-                    center = LightTopBarCenter.Text(text = "Details"),
+                    // No center title — the pass name is the content heading
+                    // under the bar (feedback 2026-08-24), so the bar is just
+                    // back + EDIT.
+                    center = null,
+                    // EDIT — the only edit entry point, top-right, in the same
+                    // size as a bottom-bar text action (feedback 2026-08-24).
+                    textVariant = LightTextVariant.Button,
+                    rightButton = LightBarButton.Text(
+                        text = "EDIT",
+                        onClick = { openEdit() },
+                    ),
                 )
                 Box(modifier = Modifier.weight(1f)) {
                     LightScrollView {
@@ -95,32 +101,20 @@ class DetailsScreen(
                             variant = LightTextVariant.Heading,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 2f.gridUnitsAsDp(), vertical = 1.5f.gridUnitsAsDp()),
+                                .padding(horizontal = 3f.gridUnitsAsDp(), vertical = 1.5f.gridUnitsAsDp()),
                         )
                         FilledDetails(pass)
                     }
                 }
-                // The only EDIT entry point, centered in the bottom bar.
-                LightBottomBar(
-                    modifier = Modifier.navigationBarsPadding(),
-                    items = listOf(
-                        null,
-                        LightBarButton.Text(
-                            text = "EDIT",
-                            onClick = { openEdit() },
-                        ),
-                        null,
-                    ),
-                )
             }
         }
     }
 
-    /** The bottom-bar EDIT opens the edit panel (delete lives there too). A
+    /** The top-right EDIT opens the edit panel (delete lives there too). A
      *  deleted whole pass pops this panel, which pops the barcode panel. */
     private fun openEdit() {
         navigateTo(screenFactory = {
-            EditScreen(it, viewModel.pass.value, currentCodeId)
+            EditScreen(it, viewModel.pass.value)
         }) { deleted ->
             if (deleted == true) goBack(true) else viewModel.refresh()
         }
@@ -128,7 +122,8 @@ class DetailsScreen(
 }
 
 /** The pass's detail rows — only fields that are filled. Date and End date
- *  share one row ("Aug 12, 2026 – Aug 20, 2026"), like the time range. */
+ *  share one row ("Aug 12, 2026 – Aug 20, 2026"), like the time range. All
+ *  text is white (content color). */
 @Composable
 private fun FilledDetails(pass: Pass) {
     val rows = buildList {
@@ -159,9 +154,9 @@ private fun FilledDetails(pass: Pass) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2f.gridUnitsAsDp(), vertical = 0.75f.gridUnitsAsDp()),
+                .padding(horizontal = 3f.gridUnitsAsDp(), vertical = 0.75f.gridUnitsAsDp()),
         ) {
-            LightText(label, variant = LightTextVariant.Fine, lighten = true)
+            LightText(label, variant = LightTextVariant.Superfine)
             LightText(
                 text = value,
                 variant = LightTextVariant.Copy,

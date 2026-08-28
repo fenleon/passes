@@ -54,6 +54,10 @@ object PassRepository {
 
     private const val STORAGE_FILE = "passes.json"
 
+    /** The largest a pass's stack can grow (feedback 2026-08-24: a cap keeps
+     *  the delete list and swipe stack sane). Refuses to add past it. */
+    const val MAX_STACK_SIZE = 10
+
     private val passesSerializer = ListSerializer(StoredPass.serializer())
 
     private var storageFile: File? = null
@@ -99,7 +103,11 @@ object PassRepository {
         synchronized(this) {
             mutablePasses.value = mutablePasses.value.map { pass ->
                 if (pass.id == passId) {
-                    pass.copy(codes = pass.codes + code(data, rawData, type, typed))
+                    if (pass.codes.size >= MAX_STACK_SIZE) {
+                        pass // stack is full — refuse to grow it
+                    } else {
+                        pass.copy(codes = pass.codes + code(data, rawData, type, typed))
+                    }
                 } else {
                     pass
                 }

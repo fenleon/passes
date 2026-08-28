@@ -29,7 +29,6 @@ import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
-import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
@@ -154,8 +153,10 @@ private fun StatusText(text: String) {
     )
 }
 
-/** One pass row: the name, and the stacked-code count ("n") to the right when
- *  more than one code sits under the name. */
+/** One pass row: the name with a subtext under it — the start date (+ time),
+ *  or the issuer as fallback, or nothing — and the stacked-code count ("n") to
+ *  the right when more than one code sits under the name. All text is white;
+ *  the count matches the name's size. */
 @Composable
 private fun PassRow(pass: Pass, count: Int, onClick: () -> Unit) {
     Row(
@@ -165,17 +166,30 @@ private fun PassRow(pass: Pass, count: Int, onClick: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(
-            text = pass.name,
-            variant = LightTextVariant.Copy,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            LightText(
+                text = pass.name,
+                variant = LightTextVariant.Copy,
+            )
+            subtext(pass)?.let {
+                LightText(
+                    text = it,
+                    variant = LightTextVariant.Detail,
+                    modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
+                )
+            }
+        }
         if (count > 1) {
             LightText(
                 text = count.toString(),
-                variant = LightTextVariant.Detail,
-                lighten = true,
+                variant = LightTextVariant.Copy,
             )
         }
     }
 }
+
+/** The row's subtext: start date (+ time), else the issuer, else nothing. */
+private fun subtext(pass: Pass): String? =
+    pass.date?.let { date ->
+        pass.startTime?.takeIf { it.isNotBlank() }?.let { "$date, $it" } ?: date
+    } ?: pass.issuer

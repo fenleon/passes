@@ -4,12 +4,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,12 +23,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lightphone.passes.Pass
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
+import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
@@ -44,13 +45,16 @@ private const val SWIPE_THRESHOLD_PX = 60f
 
 /**
  * The code full-screen: the panel's clean scanner presentation — the code on a
- * 1:1 white square (as wide as the screen) sitting at the top bar's buffer,
- * with a thin bottom bar (the top bar's height) holding "x of n" when the pass
- * stacks — blank otherwise. It keeps the same top bar (pass name, next-code
- * arrow while one exists) and stack navigation: swipe left/right turns between
- * codes (bounded); back steps back through the stack first, and on the first
- * code pops straight to the home list (result `true` pops the pass panel too).
- * Tapping the card shrinks back to the panel. Bitmaps come from the shared
+ * 1:1 white square, sized so the space around it is equidistant to the top bar
+ * and the bottom-bar X (a screen-width square is taller than the space between
+ * the bars and collides with the title — feedback 2026-08-25). The window
+ * brightness goes to max while this screen is up (so the scanner sees the
+ * sharpest possible symbol) and is restored on exit (feedback 2026-08-24). The
+ * top bar holds **"x of n"** as its title with `<` / `>` buttons to turn
+ * between stacked codes; a single code shows **no title and no buttons**
+ * (feedback 2026-08-25) — the bottom bar holds only an X that dismisses back
+ * to the pass panel (tapping the card does the same). Swiping left/right also
+ * turns between stacked codes (bounded). Bitmaps come from the shared
  * [BarcodeCache], so opening it for a code the panel already showed is instant.
  */
 class FullscreenBarcodeScreen(
@@ -65,6 +69,19 @@ class FullscreenBarcodeScreen(
     override fun createViewModel(): BarcodeViewModel {
         val index = pass.codes.indexOfFirst { it.id == codeId }.coerceAtLeast(0)
         return BarcodeViewModel(pass.id, pass, index)
+    }
+
+    // While the code is up full-screen the window brightness goes to max, so
+    // the scanner sees the sharpest possible symbol; it is restored on the way
+    // out (back, tap-to-shrink, or the pass panel being popped underneath).
+    override fun willShow() {
+        super.willShow()
+        setScreenBrightness(1f)
+    }
+
+    override fun willHide() {
+        super.willHide()
+        setScreenBrightness(null)
     }
 
     @Composable
@@ -85,6 +102,11 @@ class FullscreenBarcodeScreen(
 
         val codeCount = pass.codes.size
         val stacked = codeCount > 1
+        // The `<` / `>` buttons only appear when there is a code to move to —
+        // the first code shows only `>`, the last only `<` (feedback
+        // 2026-08-25).
+        val canPrevious = stacked && index > 0
+        val canNext = stacked && index < codeCount - 1
 
         LightTheme(colors = themeColors) {
             Column(
@@ -92,23 +114,28 @@ class FullscreenBarcodeScreen(
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
-                // Top bar: the pass name, the next-code arrow while one exists
-                // (no + here — adding lives on the pass panel), and a back
-                // button that steps back through the stack first; on the FIRST
-                // code it leaves the fullscreen **and** the pass panel, back to
-                // the home list (result `true` pops the panel below).
+                // Top bar: "x of n" as the title with `<` (previous) and `>`
+                // (next) buttons to move between stacked codes (feedback
+                // 2026-08-24: the fullscreen's own stack navigation, rather
+                // than the card-under label) — shown only when the pass stacks;
+                // a single code shows no title at all (feedback 2026-08-25).
+                // Dismissal is the bottom-bar X (or tapping the card).
                 LightTopBar(
-                    leftButton = LightBarButton.LightIcon(
-                        icon = LightIcons.BACK,
-                        onClick = { if (!viewModel.previous(widthPx)) goBack(true) },
-                        contentDescription = if (stacked && index > 0) {
-                            "Previous code"
-                        } else {
-                            "Back to Passes"
-                        },
-                    ),
-                    center = LightTopBarCenter.Text(text = pass.name),
-                    rightButton = if (stacked && index < codeCount - 1) {
+                    leftButton = if (canPrevious) {
+                        LightBarButton.LightIcon(
+                            icon = LightIcons.BACK,
+                            onClick = { viewModel.previous(widthPx) },
+                            contentDescription = "Previous code",
+                        )
+                    } else {
+                        null
+                    },
+                    center = if (stacked) {
+                        LightTopBarCenter.Text(text = "${index + 1} of ${codeCount}")
+                    } else {
+                        null
+                    },
+                    rightButton = if (canNext) {
                         LightBarButton.LightIcon(
                             icon = LightIcons.ARROW_RIGHT,
                             onClick = { viewModel.next(widthPx) },
@@ -118,13 +145,15 @@ class FullscreenBarcodeScreen(
                         null
                     },
                 )
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        // Content sits at the top bar's buffer (the square's own
-                        // 1-gu top margin) — the same content position every
-                        // other screen uses, not floating mid-screen.
+                        // The square is shrunk to fit between the top bar and
+                        // the bottom-bar X, leaving a 1-gu gap all around — a
+                        // screen-width square is taller than the space between
+                        // the bars and collides with the title (feedback
+                        // 2026-08-25).
                         // Swiping turns between stacked codes, like the panel.
                         .pointerInput(codeCount) {
                             if (codeCount <= 1) return@pointerInput
@@ -145,17 +174,19 @@ class FullscreenBarcodeScreen(
                                 },
                             )
                         },
-                    contentAlignment = Alignment.TopCenter,
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // The code sits on a 1:1 white square at the top bar's
-                    // buffer, with the panel card's 1-gu margins (width-limited:
-                    // portrait keeps the square as wide as the card). Tapping the
-                    // card shrinks it back to the pass panel.
+                    // The code sits on a 1:1 white square; both dimensions are
+                    // capped at the available space minus a 1-gu margin each
+                    // side, so the card keeps the same gap to the title, the
+                    // X bar, and the side gutters (equidistant — feedback
+                    // 2026-08-25). Tapping the card dismisses it (same as the
+                    // bottom-bar X).
+                    val side = (minOf(maxWidth, maxHeight) - 2f.gridUnitsAsDp())
+                        .coerceAtLeast(0.dp)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 1f.gridUnitsAsDp(), top = 1f.gridUnitsAsDp(), end = 1f.gridUnitsAsDp())
-                            .aspectRatio(1f)
+                            .size(side)
                             .background(Color.White)
                             .lightClickable(onClick = { goBack() }),
                         contentAlignment = Alignment.Center,
@@ -185,24 +216,19 @@ class FullscreenBarcodeScreen(
                         }
                     }
                 }
-                // A thin bar at the bottom, the top bar's height and width: "x of
-                // n" when the pass stacks, blank otherwise — nothing else under
-                // the square.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3f.gridUnitsAsDp()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (stacked) {
-                        LightText(
-                            text = "${index + 1} of $codeCount",
-                            variant = LightTextVariant.Detail,
-                            lighten = true,
-                            align = TextAlign.Center,
-                        )
-                    }
-                }
+                // Bottom bar: just an X to dismiss the fullscreen back to the
+                // pass panel (feedback 2026-08-24). Single centered icon: with
+                // one item the SDK centers it.
+                LightBottomBar(
+                    modifier = Modifier.navigationBarsPadding(),
+                    items = listOf(
+                        LightBarButton.LightIcon(
+                            icon = LightIcons.CLOSE,
+                            onClick = { goBack() },
+                            contentDescription = "Close ${pass.name}",
+                        ),
+                    ),
+                )
             }
         }
     }

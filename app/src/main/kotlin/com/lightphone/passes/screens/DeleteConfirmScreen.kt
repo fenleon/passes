@@ -3,16 +3,17 @@ package com.lightphone.passes.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import com.lightphone.passes.Pass
 import com.lightphone.passes.PassesClient
@@ -22,7 +23,9 @@ import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
+import com.thelightphone.sdk.ui.LightIcon
 import com.thelightphone.sdk.ui.LightIcons
+import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
@@ -31,35 +34,47 @@ import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.LightTopBar
 import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.gridUnitsAsDp
+import com.thelightphone.sdk.ui.lightClickable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The delete-confirm panel — opened by the barcode panel's bottom-left X. It
- * asks before deleting **the one code being viewed**: when the pass stacks
- * several codes, only that code goes (the rest are kept); the whole pass is
- * removed only when it was the last code.
+ * The delete screen — the edit panel's delete destination. It lists the pass's
+ * stacked codes as rows ("Pass 1", "Pass 2", …) with an X on each row to delete
+ * just that code, and a single **DELETE ALL** in the bottom bar that removes the
+ * whole pass (feedback 2026-08-24: the old centered confirm panel). Back sits
+ * top-left; backing out returns unchanged, deleting one code returns refreshed,
+ * DELETE ALL (or deleting the last code via its row X) removes the pass.
  *
  * Result: `true` when the whole pass was deleted (the screens above pop
- * themselves), `false` after a single-code delete (the barcode panel refreshes
- * onto the remaining stack), no result when dismissed.
+ * themselves), `false` after a single-code delete (the edit panel pops, the
+ * details panel refreshes onto the remaining stack), no result when dismissed.
  */
-class DeleteConfirmViewModel(private val pass: Pass, private val codeId: String) :
-    LightViewModel<Boolean>() {
+class DeleteViewModel(private val pass: Pass) : LightViewModel<Boolean>() {
 
-    val busy = MutableStateFlow(false)
+    /** The pass's codes still present — every row X drops its code live; when
+     *  the last one goes the pass is gone (reported `true` back). */
+    val remainingCodes = MutableStateFlow(pass.codes)
 
-    val index: Int = pass.codes.indexOfFirst { it.id == codeId }.coerceAtLeast(0)
-    val stacked: Boolean = pass.codes.size > 1
-
-    fun delete(screen: SimpleLightScreen<Boolean>) {
-        if (busy.value) return
+    fun deleteCode(screen: SimpleLightScreen<Boolean>, codeId: String) {
+        if (remainingCodes.value.isEmpty()) return
         viewModelScope.launch {
-            busy.value = true
             PassesClient.deleteCode(codeId)
-            busy.value = false
-            // Only the last code's deletion removes the whole pass (result true).
-            screen.goBack(!stacked)
+            val left = remainingCodes.value.filterNot { it.id == codeId }
+            if (left.isEmpty()) {
+                screen.goBack(true) // last code — the whole pass is gone
+            } else {
+                remainingCodes.value = left
+            }
+        }
+    }
+
+    fun deleteAll(screen: SimpleLightScreen<Boolean>) {
+        if (remainingCodes.value.isEmpty()) return
+        viewModelScope.launch {
+            // Deleting one code after another; the final one removes the pass.
+            remainingCodes.value.forEach { PassesClient.deleteCode(it.id) }
+            screen.goBack(true)
         }
     }
 }
@@ -67,29 +82,17 @@ class DeleteConfirmViewModel(private val pass: Pass, private val codeId: String)
 class DeleteConfirmScreen(
     sealedActivity: SealedLightActivity,
     private val pass: Pass,
-    private val codeId: String,
-) : LightScreen<Boolean, DeleteConfirmViewModel>(sealedActivity) {
+) : LightScreen<Boolean, DeleteViewModel>(sealedActivity) {
 
-    override val viewModelClass: Class<DeleteConfirmViewModel>
-        get() = DeleteConfirmViewModel::class.java
+    override val viewModelClass: Class<DeleteViewModel>
+        get() = DeleteViewModel::class.java
 
-    override fun createViewModel(): DeleteConfirmViewModel = DeleteConfirmViewModel(pass, codeId)
+    override fun createViewModel(): DeleteViewModel = DeleteViewModel(pass)
 
     @Composable
     override fun Content() {
-        val busy by viewModel.busy.collectAsState()
+        val codes by viewModel.remainingCodes.collectAsState()
         val themeColors by LightThemeController.colors.collectAsState()
-
-        val title = if (viewModel.stacked) {
-            "Delete Pass ${viewModel.index + 1} of ${pass.codes.size}"
-        } else {
-            "Delete Pass"
-        }
-        val body = if (viewModel.stacked) {
-            "Delete this code? The other codes are kept."
-        } else {
-            "Delete ${pass.name}?"
-        }
 
         LightTheme(colors = themeColors) {
             Column(
@@ -103,33 +106,54 @@ class DeleteConfirmScreen(
                         onClick = { goBack() },
                         contentDescription = "Back to ${pass.name}",
                     ),
-                    center = LightTopBarCenter.Text(text = title),
+                    center = LightTopBarCenter.Text(text = "Delete Pass"),
                 )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LightText(
-                        text = body,
-                        variant = LightTextVariant.Copy,
-                        align = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 3f.gridUnitsAsDp()),
-                    )
+                Box(modifier = Modifier.weight(1f)) {
+                    if (codes.isEmpty()) {
+                        // Every row X tapped the list away (the pass is gone).
+                        LightText(
+                            text = "Deleting…",
+                            variant = LightTextVariant.Copy,
+                            modifier = Modifier.padding(2f.gridUnitsAsDp()),
+                        )
+                    } else {
+                        LightScrollView {
+                            codes.forEachIndexed { index, code ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 2f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    LightText(
+                                        text = "Pass ${index + 1}",
+                                        variant = LightTextVariant.Copy,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    LightIcon(
+                                        icon = LightIcons.CLOSE,
+                                        contentDescription = "Delete Pass ${index + 1}",
+                                        modifier = Modifier
+                                            .widthIn(min = 3.5f.gridUnitsAsDp())
+                                            .lightClickable { viewModel.deleteCode(this@DeleteConfirmScreen, code.id) },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
+                // DELETE ALL in the bottom bar (feedback 2026-08-24: the old
+                // per-code DELETE / CANCEL pair is now this one whole-pass bar
+                // action; per-code deletion lives on the rows' X).
                 LightBottomBar(
                     modifier = Modifier.navigationBarsPadding(),
                     items = listOf(
-                        LightBarButton.Text(
-                            text = "DELETE",
-                            onClick = { viewModel.delete(this@DeleteConfirmScreen) },
-                        ),
                         null,
                         LightBarButton.Text(
-                            text = "CANCEL",
-                            onClick = { goBack() },
+                            text = "DELETE ALL",
+                            onClick = { viewModel.deleteAll(this@DeleteConfirmScreen) },
                         ),
+                        null,
                     ),
                 )
             }

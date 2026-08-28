@@ -56,8 +56,12 @@ private fun parseStoredTime(value: String): LocalTime? {
 private fun formatTime(time: LocalTime): String = DISPLAY_TIME.format(time)
 
 /**
- * Pick a time on two scrollable columns (HOUR / MIN, 24-hour). Tap a value to
- * select it; SAVE stores "HH:mm" ("" when CLEARED); back cancels.
+ * Pick a time on two scrollable columns (HOUR / MIN, 24-hour). Everything is
+ * white; the selected value in each column carries the selection underline and
+ * the HOUR / MIN labels sit above their columns, centered — the columns are a
+ * centered pair (feedback 2026-08-24). The list opens scrolled so the current
+ * value is vertically centered in its column. Tap a value to select it; CLEAR
+ * stores "", SAVE stores "HH:mm"; X (or the top-bar back) cancels.
  */
 class TimePickerScreen(
     sealedActivity: SealedLightActivity,
@@ -86,11 +90,16 @@ class TimePickerScreen(
                     ),
                     center = LightTopBarCenter.Text(text = title),
                 )
+                // The two 0..59 / 0..23 columns each fill half the panel, their
+                // content centered in that half — HOUR in the left half, MIN in
+                // the right, each scrollbar at its half's right edge (feedback
+                // 2026-08-25).
                 Row(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 2f.gridUnitsAsDp()),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TimeColumn(
                         label = "HOUR",
@@ -107,6 +116,8 @@ class TimePickerScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                // The X (dismiss / cancel) sits center; CLEAR / SAVE are the
+                // corner actions (feedback 2026-08-24).
                 LightBottomBar(
                     modifier = Modifier.navigationBarsPadding(),
                     items = listOf(
@@ -118,7 +129,11 @@ class TimePickerScreen(
                         } else {
                             null
                         },
-                        null,
+                        LightBarButton.LightIcon(
+                            icon = LightIcons.CLOSE,
+                            onClick = { goBack() },
+                            contentDescription = "Close without changing",
+                        ),
                         LightBarButton.Text(
                             text = "SAVE",
                             onClick = { goBack(formatTime(LocalTime.of(hour, minute))) },
@@ -130,8 +145,11 @@ class TimePickerScreen(
     }
 }
 
-/** One scrollable value column; the selected value renders full-strength. The
- *  list opens scrolled to the current value. */
+/** One scrollable value column. The selected value renders underlined with the
+ *  thin ~2dp selection underline (same as the date picker — feedback
+ *  2026-08-25; the old 4dp LightText selection bar read too heavy). The list
+ *  opens scrolled so the current value sits vertically centered in the
+ *  column. */
 @Composable
 private fun TimeColumn(
     label: String,
@@ -140,19 +158,26 @@ private fun TimeColumn(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         LightText(
             text = label,
             variant = LightTextVariant.Fine,
-            lighten = true,
             align = TextAlign.Center,
             modifier = Modifier.padding(vertical = 0.5f.gridUnitsAsDp()),
         )
         val density = LocalDensity.current
-        val rowHeight = 1.6f.verticalGridUnitsAsDp()
+        // Taller rows — room for the selection underline under each value
+        // (feedback 2026-08-25).
+        val rowHeight = 2.5f.verticalGridUnitsAsDp()
         val rowHeightPx = with(density) { rowHeight.toPx() }
         val initialIndex = values.indexOf(selected).coerceAtLeast(0)
-        val scrollState = rememberScrollState(initial = (initialIndex * rowHeightPx).roundToInt())
+        // Center the selected row in the column's visible area: offset the list
+        // so the selected row sits 2 rows below the top (feedback 2026-08-24).
+        val initialScroll = ((initialIndex - 2).coerceAtLeast(0) * rowHeightPx).roundToInt()
+        val scrollState = rememberScrollState(initial = initialScroll)
         LightScrollView(
             scrollState = scrollState,
             modifier = Modifier
@@ -170,7 +195,11 @@ private fun TimeColumn(
                     LightText(
                         text = value.toString().padStart(2, '0'),
                         variant = LightTextVariant.Copy,
-                        lighten = value != selected,
+                        modifier = if (value == selected) {
+                            Modifier.thinUnderline()
+                        } else {
+                            Modifier
+                        },
                     )
                 }
             }

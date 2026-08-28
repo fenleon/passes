@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -31,6 +33,7 @@ import com.lightphone.passes.BarcodeCache
 import com.lightphone.passes.Code
 import com.lightphone.passes.Pass
 import com.lightphone.passes.PassesClient
+import com.lightphone.passes.PassRepository
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -53,14 +56,15 @@ import kotlinx.coroutines.launch
 private const val SWIPE_THRESHOLD_PX = 60f
 
 /**
- * The barcode panel: the pass's stacked codes, one full-size on white. The
- * pass name sits in the top bar; **swiping left/right switches between the
- * stacked codes** like turning calendar pages, and the back button steps back
- * through the stack before leaving. The bottom bar holds the delete X
- * (bottom-left, with a confirm panel), VIEW DETAILS, and the `+` (bottom-right)
- * that stacks another code onto the pass — the `+` is persistent across the
- * whole stack. Typed codes show their text under the barcode; scanned payloads
- * are usually noise, so they stay hidden.
+ * The barcode panel: the pass's stacked codes, one at a time — each on a
+ * smaller white card that hugs the code's own shape (square QR, rectangle
+ * barcode), so the code never fills the page. The pass name sits in the top
+ * bar with the `+` (top-right) that stacks another code onto the pass;
+ * **swiping left/right switches between the stacked codes** like turning
+ * calendar pages, and the back button steps back through the stack before
+ * leaving. The bottom bar holds only VIEW DETAILS (edit and delete live
+ * there). Typed codes show their text under the barcode; scanned payloads are
+ * usually noise, so they stay hidden.
  */
 class BarcodeViewModel(
     private val passId: String,
@@ -201,16 +205,27 @@ class BarcodeScreen(
                         },
                     ),
                     center = LightTopBarCenter.Text(text = pass.name),
-                    // Right slot: the next-code arrow while one exists. Adding
-                    // lives in the bottom bar's right corner, on every code.
-                    rightButton = if (stacked && index < codeCount - 1) {
+                    // Right slot: the `+` stacks another code onto the pass —
+                    // flat full-bar-height icon, same size as any bottom-bar
+                    // action (feedback 2026-08-24: the old small "+" text was
+                    // too small). It shows only on the LAST code; elsewhere the
+                    // next-code arrow takes the slot (swiping still works). At
+                    // the stack cap (10) the pass accepts no more codes, so the
+                    // + hides entirely (the arrow still navigates the stack).
+                    rightButton = if (codeCount >= PassRepository.MAX_STACK_SIZE) {
+                        null
+                    } else if (index < codeCount - 1) {
                         LightBarButton.LightIcon(
                             icon = LightIcons.ARROW_RIGHT,
                             onClick = { viewModel.next(widthPx) },
                             contentDescription = "Next code",
                         )
                     } else {
-                        null
+                        LightBarButton.LightIcon(
+                            icon = LightIcons.ADD,
+                            onClick = { openAddCode() },
+                            contentDescription = "Add code to ${pass.name}",
+                        )
                     },
                 )
                 Box(
@@ -249,28 +264,18 @@ class BarcodeScreen(
                         )
                     }
                 }
-                // Bottom bar: X (delete, with a confirm panel first) bottom-left,
-                // VIEW DETAILS center, + (add a code to this pass) bottom-right —
-                // the + is persistent, on every code of the stack, not just the
-                // last. The code the X deletes is the one being viewed; a stacked
-                // pass keeps its other codes.
+                // Bottom bar: just VIEW DETAILS (the details panel holds EDIT
+                // and, from there, DELETE with a confirm). Adding lives in the
+                // top-right `+`; the code's delete lives in the edit panel.
                 LightBottomBar(
                     modifier = Modifier.navigationBarsPadding(),
                     items = listOf(
-                        LightBarButton.LightIcon(
-                            icon = LightIcons.CLOSE,
-                            onClick = { openDeleteConfirm() },
-                            contentDescription = "Delete code",
-                        ),
+                        null,
                         LightBarButton.Text(
                             text = "VIEW DETAILS",
                             onClick = { openDetails() },
                         ),
-                        LightBarButton.LightIcon(
-                            icon = LightIcons.ADD,
-                            onClick = { openAddCode() },
-                            contentDescription = "Add code to ${pass.name}",
-                        ),
+                        null,
                     ),
                 )
             }
@@ -281,19 +286,7 @@ class BarcodeScreen(
      *  whole pass is deleted there, this panel pops. */
     private fun openDetails() {
         navigateTo(screenFactory = {
-            DetailsScreen(it, viewModel.pass.value, viewModel.current.id)
-        }) { deleted ->
-            if (deleted == true) goBack()
-        }
-    }
-
-    /** The X opens a confirm panel; on confirm it deletes the code being viewed
-     *  (the whole pass when it was the last code). A single-code delete leaves
-     *  this panel standing — the refresh on the next show re-reads the pass and
-     *  lands on the remaining stack. */
-    private fun openDeleteConfirm() {
-        navigateTo(screenFactory = {
-            DeleteConfirmScreen(it, viewModel.pass.value, viewModel.current.id)
+            DetailsScreen(it, viewModel.pass.value)
         }) { deleted ->
             if (deleted == true) goBack()
         }
@@ -321,30 +314,43 @@ class BarcodeScreen(
     }
 }
 
-/** The code on a white card (white is required so the code stays scannable) at
- *  full display width, and — only for typed codes — its text below. No "x of n"
- *  here; the stacked position shows only in the fullscreen. Tapping the card
- *  opens the code full-screen. */
+/**
+ * The code on a white card (white is required so the code stays scannable).
+ * The card is smaller than the page and hugs the code's own shape — a square
+ * for a QR, a rectangle for a barcode — with equal buffer around the symbol,
+ * centered. Typed codes show their text below; scanned payloads are usually
+ * noise, so they stay hidden. Tapping the card opens the code full-screen.
+ */
 @Composable
 private fun BarcodeView(bitmap: ImageBitmap, code: Code, onExpand: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 1f.gridUnitsAsDp(), vertical = 1f.gridUnitsAsDp())
-                .background(Color.White)
-                .lightClickable(onClick = onExpand),
+                .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                bitmap = bitmap,
-                contentDescription = "Barcode",
-                contentScale = ContentScale.Fit,
+            // The white card keeps the code's aspect (QR = square, barcode =
+            // wide rectangle) so the whitespace around the code matches its
+            // shape, and it stays clear of the page edges on every side.
+            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(1f.gridUnitsAsDp()),
-            )
+                    .fillMaxWidth(0.8f)
+                    .aspectRatio(ratio)
+                    .background(Color.White)
+                    .lightClickable(onClick = onExpand),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = "Barcode",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(1f.gridUnitsAsDp()),
+                )
+            }
         }
         if (code.typed) {
             LightText(
