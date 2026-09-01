@@ -1,6 +1,7 @@
 package com.lightphone.passes.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.lightphone.passes.formatStoredDate
+import com.lightphone.passes.parseStoredDate
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
 import com.thelightphone.sdk.ui.LightBarButton
@@ -47,20 +51,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val DISPLAY_DATE = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 private val MONTH_TITLE = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)
-private val ISO_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
-
-/** Parses a stored date value: our display format, or ISO (from typed entry). */
-private fun parseStoredDate(value: String): LocalDate? {
-    if (value.isBlank()) return null
-    return runCatching { LocalDate.parse(value, DISPLAY_DATE) }
-        .recoverCatching { LocalDate.parse(value, ISO_DATE) }
-        .getOrNull()
-}
-
-/** Formats a picked date for storage and display. */
-private fun formatDate(date: LocalDate): String = DISPLAY_DATE.format(date)
 
 /** The pickers' selection underline: a ~2dp bar at the text's bottom edge —
  *  the text-field underline thickness, thinner than LightText's 4dp selection
@@ -131,7 +122,31 @@ class DatePickerScreen(
                         contentDescription = "Next month",
                     ),
                 )
-                Box(modifier = Modifier.weight(1f)) {
+                // Swiping left/right turns the month (same as the top-bar
+                // arrows): left = next month, right = previous (feedback
+                // 2026-08-30 — the picker's grid turns like calendar pages).
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(Unit) {
+                            var dragTotal = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragTotal = 0f },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragTotal += dragAmount
+                                },
+                                onDragEnd = {
+                                    when {
+                                        dragTotal <= -SWIPE_THRESHOLD_PX ->
+                                            month = month.plusMonths(1)
+                                        dragTotal >= SWIPE_THRESHOLD_PX ->
+                                            month = month.minusMonths(1)
+                                    }
+                                },
+                            )
+                        },
+                ) {
                     MonthGrid(
                         month = month,
                         selected = selected,
@@ -142,7 +157,7 @@ class DatePickerScreen(
                                 selected = day
                             } else {
                                 // Fresh pick: tapping a day stores it right away.
-                                goBack(formatDate(day))
+                                goBack(formatStoredDate(day))
                             }
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -166,7 +181,7 @@ class DatePickerScreen(
                             ),
                             LightBarButton.Text(
                                 text = "SAVE",
-                                onClick = { goBack(formatDate(selected ?: initialDate)) },
+                                onClick = { goBack(formatStoredDate(selected ?: initialDate)) },
                             ),
                         ),
                     )

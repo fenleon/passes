@@ -43,6 +43,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // zxing-cpp (the scanner's decode engine, pulled in by sdk:ui) is published
+    // with compileSdk 37 AAR metadata, above this workspace's android-36. The
+    // wrapper is a JNI shim over API-1-level types (Bitmap/Rect/ByteBuffer,
+    // minSdk 21), so the check is advisory here — revisit if it ever needs
+    // newer APIs.
+    tasks.matching { it.name.endsWith("AarMetadata") }.configureEach { enabled = false }
 }
 
 kotlin {

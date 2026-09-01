@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.lightphone.passes.PassesClient
+import com.lightphone.passes.StoredSymbol
 import com.thelightphone.sdk.LightBarcodeScanner
 import com.thelightphone.sdk.LightScannedBarcode
 import com.thelightphone.sdk.SealedLightActivity
@@ -32,10 +33,10 @@ import java.util.Base64
  * renders back in the same symbol; binary payloads (Aztec/PDF417 ticketing
  * codes) keep their raw bytes.
  *
- * With [addToPassId] set ("add to this pass" from the barcode panel), a
- * scanned/typed code is stacked straight under that pass — no naming step —
- * and the screen pops with `true` so the panel can refresh and show the new
- * code.
+ * With [addToPassId] set ("add to this pass" from the code fullscreen's `+`),
+ * a scanned/typed code is stacked straight under that pass — no naming step —
+ * and the screen pops with `true` so the fullscreen can refresh and show the
+ * new code.
  */
 class ScanScreen(
     sealedActivity: SealedLightActivity,
@@ -59,6 +60,7 @@ class ScanScreen(
                     rawData = rawDataFor(code),
                     type = code.formatName,
                     typed = false,
+                    symbol = symbolFor(code),
                 )
                 if (ok) goBack(true)
             } else {
@@ -70,6 +72,7 @@ class ScanScreen(
                             rawDataFor(code),
                             code.formatName,
                             typed = false,
+                            symbol = symbolFor(code),
                         )
                     },
                 ) { saved -> if (saved == true) goBack(true) }
@@ -122,5 +125,12 @@ class ScanScreen(
         } else {
             null
         }
+    }
+
+    /** The exact decoded symbol grid, so the stored pass renders the original
+     *  barcode instead of a re-encode. */
+    private fun symbolFor(code: LightScannedBarcode): StoredSymbol? {
+        val symbol = code.symbol ?: return null
+        return StoredSymbol(symbol.width, symbol.height, symbol.data)
     }
 }

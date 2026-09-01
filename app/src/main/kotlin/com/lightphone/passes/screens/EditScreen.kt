@@ -51,23 +51,21 @@ import kotlinx.coroutines.launch
  * The edit panel: edits a pass's key details (name, issuer, date, end date,
  * start/end time, location, notes) one field at a time. The top-bar title is
  * "Edit Pass" (stacking doesn't split the entity — the edits apply to all the
- * pass's codes, so "Edit Passes" looks like a mistake). No back button in the
- * top bar (feedback 2026-08-24) — dismissing without saving is the bottom-bar
- * X. The name, issuer, and location fields edit on the LP3 keyboard in the
- * **code-entry style** (larger, vertically centered — same editor for all
- * three; feedback 2026-08-24: issuer/location match the name), Notes is
- * multi-line Notes-style; SAVE is centered below the keyboard (feedback
- * 2026-08-25 — was bottom-right); the keyboard shows no mic anywhere and no
- * emoji key except in the Notes
- * field. Date/End date open the calendar-style date picker, Start/End time
- * the time picker — Date+End date and Start+End time share a row each. Every
+ * pass's codes, so "Edit Passes" looks like a mistake). The **`<` back sits in
+ * the top-left slot** (feedback 2026-08-30: it is the standard top-bar back
+ * position) — dismissing without saving is that back. The name, issuer, and
+ * location fields edit on the LP3 keyboard in the **code-entry style** (larger,
+ * vertically centered — same editor for all three; feedback 2026-08-24:
+ * issuer/location match the name), Notes is multi-line Notes-style; SAVE is
+ * centered below the keyboard (feedback 2026-08-25 — was bottom-right); the
+ * keyboard shows no mic anywhere and no emoji key except in the Notes field.
+ * Date/End date open the calendar-style date picker, Start/End time the time
+ * picker — Start date + Start time share one row, End date + End time the next
+ * (feedback 2026-08-30: date/time pairs, not date/date and time/time). Every
  * row's input carries the ~2dp text-field underline (the radio search bar's
  * standard). After a field edit the form scrolls back to the row that was
- * tapped. Bottom bar: DELETE (opens the per-code delete screen), the X
- * (dismiss without saving), SAVE (persists).
- *
- * Result: `true` when the whole pass was deleted (the screens above pop
- * themselves), anything else returns to the details panel unchanged.
+ * tapped. Bottom bar: a single centered **SAVE** — there is no DELETE here
+ * (feedback 2026-08-30: deletion moved to the code fullscreen's bottom-left).
  */
 class EditViewModel(private val pass: Pass) :
     LightViewModel<Boolean>() {
@@ -100,20 +98,6 @@ class EditViewModel(private val pass: Pass) :
             busy.value = false
             if (ok) screen.goBack(false)
             // On a failed save stay on the editor; the user can submit again.
-        }
-    }
-
-    /** Deletes codes via the delete screen — per-code rows with an X, plus a
-     *  bottom-bar DELETE ALL (feedback 2026-08-24). It reports `true` back when
-     *  the whole pass was deleted (pop everything) or `false` when individual
-     *  codes were removed (pop back to the details panel, which refreshes); a
-     *  dismissed delete changes nothing. */
-    fun delete(screen: SimpleLightScreen<Boolean>) {
-        if (busy.value) return
-        screen.navigateTo(screenFactory = {
-            DeleteConfirmScreen(it, pass)
-        }) { deleted ->
-            if (deleted != null) screen.goBack(deleted)
         }
     }
 }
@@ -170,9 +154,17 @@ class EditScreen(
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
-                // No back button — dismissal without saving is the bottom-bar
-                // X (feedback 2026-08-24).
-                LightTopBar(center = LightTopBarCenter.Text(text = title))
+                // The `<` back sits in the top-left slot (feedback
+                // 2026-08-30) — it dismisses without saving; SAVE is the
+                // single centered bottom-bar action.
+                LightTopBar(
+                    center = LightTopBarCenter.Text(text = title),
+                    leftButton = LightBarButton.LightIcon(
+                        icon = LightIcons.BACK,
+                        onClick = { goBack() },
+                        contentDescription = "Back without saving",
+                    ),
+                )
                 Box(modifier = Modifier.weight(1f)) {
                     LightScrollView(scrollState = scrollState) {
                         // The name needs no label — it's the pass's own name, the first row of
@@ -195,8 +187,9 @@ class EditScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 2f.gridUnitsAsDp(), vertical = 0.75f.gridUnitsAsDp()),
                         )
-                        // Date + End date share one row (feedback 2026-08-24),
-                        // like Start time + End time below.
+                        // Start date + Start time share one row, End date + End
+                        // time the next (feedback 2026-08-30: date/time pairs,
+                        // not date/date and time/time).
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -211,10 +204,10 @@ class EditScreen(
                             )
                             Spacer(Modifier.width(1f.gridUnitsAsDp()))
                             EditFieldRow(
-                                label = "End Date",
-                                value = endDate,
-                                placeholder = "Add Date",
-                                onClick = { tap(); pickEndDate() },
+                                label = "Start Time",
+                                value = startTime,
+                                placeholder = "Add Time",
+                                onClick = { tap(); pickTime("Start Time", viewModel.startTime) },
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -224,10 +217,10 @@ class EditScreen(
                                 .padding(horizontal = 2f.gridUnitsAsDp(), vertical = 0.75f.gridUnitsAsDp()),
                         ) {
                             EditFieldRow(
-                                label = "Start Time",
-                                value = startTime,
-                                placeholder = "Add Time",
-                                onClick = { tap(); pickTime("Start Time", viewModel.startTime) },
+                                label = "End Date",
+                                value = endDate,
+                                placeholder = "Add Date",
+                                onClick = { tap(); pickEndDate() },
                                 modifier = Modifier.weight(1f),
                             )
                             Spacer(Modifier.width(1f.gridUnitsAsDp()))
@@ -259,22 +252,12 @@ class EditScreen(
                         )
                     }
                 }
-                // Corner actions (calendar EventForm grammar): DELETE bottom-left
-                // (opens the per-code delete screen — see [EditViewModel.delete]),
-                // SAVE bottom-right, and an X centered for dismissing without
-                // saving (no top-bar back, feedback 2026-08-24).
+                // A single centered SAVE — deletion is gone from the editor
+                // (feedback 2026-08-30: it lives on the code fullscreen's
+                // bottom-left); the top-right `<` back dismisses.
                 LightBottomBar(
                     modifier = Modifier.navigationBarsPadding(),
                     items = listOf(
-                        LightBarButton.Text(
-                            text = "DELETE",
-                            onClick = { viewModel.delete(this@EditScreen) },
-                        ),
-                        LightBarButton.LightIcon(
-                            icon = LightIcons.CLOSE,
-                            onClick = { goBack() },
-                            contentDescription = "Close without saving",
-                        ),
                         LightBarButton.Text(
                             text = "SAVE",
                             onClick = { viewModel.save(this@EditScreen) },

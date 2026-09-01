@@ -86,6 +86,65 @@ object BarcodeRaster {
         return renderRaster(format, text, width)
     }
 
+    /**
+     * Rasterizes a captured symbol (from the camera scanner) at [targetWidthPx]
+     * with a 1-module quiet zone on each side — the exact original symbol, not
+     * a re-encode. Returns null when the type is unknown, the symbol is
+     * malformed, or it can't fit at one pixel per module.
+     */
+    fun rasterFromSymbol(
+        type: String,
+        symbol: StoredSymbol,
+        targetWidthPx: Int = 960,
+    ): Raster? {
+        val format = formatFor(type) ?: return null
+        if (symbol.width <= 0 || symbol.height <= 0 ||
+            symbol.data.size < symbol.width * symbol.height
+        ) {
+            return null
+        }
+        val width = targetWidthPx.coerceIn(MIN_TARGET_WIDTH_PX, MAX_RENDER_PX)
+        // One module of quiet zone each side (matches the airline renders and
+        // Binary Eye's share output).
+        val modulePx = width / (symbol.width + QUIET_ZONE_SIDE_COUNT)
+        if (modulePx < 1) return null
+        val renderWidth = (symbol.width + QUIET_ZONE_SIDE_COUNT) * modulePx
+        val renderHeight = when {
+            format in SQUARE_FORMATS -> renderWidth
+            format == BarcodeFormat.DATA_MATRIX || format == BarcodeFormat.PDF_417 ->
+                (symbol.height + QUIET_ZONE_SIDE_COUNT) * modulePx
+            // 1D symbols are a single module row; stretch vertically like the
+            // re-encode path.
+            else -> (renderWidth * 0.30f).toInt().coerceAtLeast(MIN_1D_HEIGHT_PX)
+        }
+        val stretchVertically = format !in SQUARE_FORMATS &&
+            format != BarcodeFormat.DATA_MATRIX &&
+            format != BarcodeFormat.PDF_417
+        val pixels = IntArray(renderWidth * renderHeight) { index ->
+            val x = index % renderWidth
+            val y = index / renderWidth
+            val rawX = x / modulePx - 1 // minus the quiet-zone column
+            val rawY = if (stretchVertically) {
+                y * symbol.height / renderHeight
+            } else {
+                y / modulePx - 1 // minus the quiet-zone row
+            }
+            val quiet = rawX < 0 || rawX >= symbol.width ||
+                (!stretchVertically && (rawY < 0 || rawY >= symbol.height))
+            if (quiet) {
+                WHITE_PIXEL
+            } else {
+                // Scanner convention: 0 = black module.
+                if (symbol.data[rawY * symbol.width + rawX] == 0.toByte()) {
+                    BLACK_PIXEL
+                } else {
+                    WHITE_PIXEL
+                }
+            }
+        }
+        return Raster(renderWidth, renderHeight, pixels)
+    }
+
     private fun renderRaster(format: BarcodeFormat, text: String, targetWidth: Int): Raster? {
         // Aztec/PDF417 encode bytes 1:1 (ISO-8859-1); refuse non-Latin-1 payloads
         // rather than let the encoder garble them.

@@ -17,7 +17,7 @@ typealias Code = LightServiceMethod.GetPasses.Code
 object PassesClient {
 
     suspend fun getPasses(): List<Pass> =
-        PassRepository.passes.value.map { pass ->
+        PassRepository.displayOrder().map { pass ->
             Pass(
                 id = pass.id,
                 name = pass.name,
@@ -41,12 +41,26 @@ object PassesClient {
         }
 
     /** Creates a new pass with its first code. */
-    suspend fun addPass(name: String, data: String, rawData: String?, type: String, typed: Boolean = false): Boolean =
-        PassRepository.add(name, data, rawData, type, typed) != null
+    suspend fun addPass(
+        name: String,
+        data: String,
+        rawData: String?,
+        type: String,
+        typed: Boolean = false,
+        symbol: StoredSymbol? = null,
+    ): Boolean =
+        PassRepository.add(name, data, rawData, type, typed, symbol) != null
 
-    /** Stacks another code under an existing pass (the barcode panel's "+"). */
-    suspend fun addCode(passId: String, data: String, rawData: String?, type: String, typed: Boolean = false): Boolean {
-        PassRepository.addCode(passId, data, rawData, type, typed)
+    /** Stacks another code under an existing pass (the code fullscreen's "+"). */
+    suspend fun addCode(
+        passId: String,
+        data: String,
+        rawData: String?,
+        type: String,
+        typed: Boolean = false,
+        symbol: StoredSymbol? = null,
+    ): Boolean {
+        PassRepository.addCode(passId, data, rawData, type, typed, symbol)
         return true
     }
 
@@ -73,6 +87,6 @@ object PassesClient {
     /** A code's barcode as PNG bytes (rendered in-process at [width] px). */
     suspend fun barcodePng(codeId: String, width: Int = 960): ByteArray? {
         val code = PassRepository.codeFor(codeId) ?: return null
-        return BarcodeRenderer.renderPng(code.type, code.data, code.rawData, width)
+        return BarcodeRenderer.renderPng(code.type, code.data, code.rawData, width, code.symbol)
     }
 }

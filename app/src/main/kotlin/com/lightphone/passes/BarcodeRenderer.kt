@@ -21,18 +21,23 @@ object BarcodeRenderer {
 
     /**
      * Renders [data] (or the decoded [rawData] binary payload when present) as a
-     * PNG sized to [targetWidthPx]. Returns null when the type is unknown, the
-     * payload can't be encoded, the symbol can't fit the target at one pixel per
-     * module, or the rendered pixels fail payload verification.
+     * PNG sized to [targetWidthPx]. When [symbol] (the exact scanned symbol grid)
+     * is present it is rendered directly instead of re-encoding the payload.
+     * Returns null when the type is unknown, the payload can't be encoded, the
+     * symbol can't fit the target at one pixel per module, or the rendered
+     * pixels fail payload verification.
      */
     fun renderPng(
         type: String,
         data: String,
         rawData: String?,
         targetWidthPx: Int = DEFAULT_TARGET_WIDTH_PX,
+        symbol: StoredSymbol? = null,
     ): ByteArray? {
-        val raster = BarcodeRaster.raster(type, data, rawData, targetWidthPx) ?: return null
-        val key = cacheKey(type, data, rawData, targetWidthPx)
+        val raster = symbol?.let { BarcodeRaster.rasterFromSymbol(type, it, targetWidthPx) }
+            ?: BarcodeRaster.raster(type, data, rawData, targetWidthPx)
+            ?: return null
+        val key = cacheKey(type, data, rawData, symbol, targetWidthPx)
         synchronized(pngCache) { pngCache.get(key) }?.let { return it }
         val png = rasterToPng(raster) ?: return null
         synchronized(pngCache) { pngCache.put(key, png) }
@@ -51,9 +56,18 @@ object BarcodeRenderer {
         return out.toByteArray()
     }
 
-    private fun cacheKey(type: String, data: String, rawData: String?, width: Int): String {
+    private fun cacheKey(
+        type: String,
+        data: String,
+        rawData: String?,
+        symbol: StoredSymbol?,
+        width: Int,
+    ): String {
+        val symbolPart = symbol?.let {
+            "${it.width}x${it.height}:" + it.data.joinToString("") { b -> "%02x".format(b) }
+        } ?: ""
         val digest = MessageDigest.getInstance("SHA-256")
-            .digest("$data|${rawData ?: ""}".toByteArray(Charsets.UTF_8))
+            .digest("$data|${rawData ?: ""}|$symbolPart".toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
         return "$type:$width:$digest"
     }

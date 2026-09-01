@@ -3,11 +3,11 @@ package com.lightphone.passes
 import androidx.compose.ui.graphics.ImageBitmap
 
 /**
- * In-memory cache of rendered code bitmaps, keyed by code id — shared by the
- * barcode panel and the fullscreen view so flipping between codes (or opening
- * a code full-screen) never re-fetches, re-decodes, or re-flashes
- * "Generating…". BarcodeRenderer additionally caches the PNGs by payload +
- * width, so even a cold process renders each code only once.
+ * In-memory cache of rendered code bitmaps, keyed by code id — shared across
+ * the code fullscreen's turns so flipping between codes never re-fetches,
+ * re-decodes, or re-flashes "Generating…". BarcodeRenderer additionally caches
+ * the PNGs by payload + width, so even a cold process renders each code only
+ * once.
  */
 object BarcodeCache {
     private const val MAX_ENTRIES = 24

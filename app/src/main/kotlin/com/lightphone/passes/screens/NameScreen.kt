@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewModelScope
 import com.lightphone.passes.PassesClient
+import com.lightphone.passes.StoredSymbol
 import com.thelightphone.lp3Keyboard.ui.KeyboardOptions
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -28,6 +29,7 @@ class NameViewModel(
     private val rawData: String?,
     private val type: String,
     private val typed: Boolean,
+    private val symbol: StoredSymbol? = null,
 ) : LightViewModel<Boolean>() {
 
     val saving = MutableStateFlow(false)
@@ -38,7 +40,7 @@ class NameViewModel(
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             saving.value = true
-            val ok = PassesClient.addPass(trimmed, data, rawData, type, typed)
+            val ok = PassesClient.addPass(trimmed, data, rawData, type, typed, symbol)
             saving.value = false
             if (ok) screen.goBack(true)
             // On a failed save stay on the editor; the user can submit again.
@@ -57,12 +59,14 @@ class NameScreen(
     private val rawData: String?,
     private val type: String,
     private val typed: Boolean,
+    private val symbol: StoredSymbol? = null,
 ) : LightScreen<Boolean, NameViewModel>(sealedActivity) {
 
     override val viewModelClass: Class<NameViewModel>
         get() = NameViewModel::class.java
 
-    override fun createViewModel(): NameViewModel = NameViewModel(data, rawData, type, typed)
+    override fun createViewModel(): NameViewModel =
+        NameViewModel(data, rawData, type, typed, symbol)
 
     @Composable
     override fun Content() {

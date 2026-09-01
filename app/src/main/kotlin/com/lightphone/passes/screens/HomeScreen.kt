@@ -110,8 +110,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                         }
                         else -> LightScrollView {
                             // One row per pass; stacked codes under the name show
-                            // a count to the right. The repository stores the list
-                            // alphabetically, so the rows already are.
+                            // a count to the right. The repository's displayOrder
+                            // sorts them — upcoming dates first, no date in the
+                            // middle, past at the bottom, alphabetical within.
                             passes.forEach { pass ->
                                 PassRow(pass, pass.codes.size) { openBarcode(pass) }
                             }
@@ -135,7 +136,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
     }
 
     private fun openBarcode(pass: Pass) {
-        navigateTo(screenFactory = { BarcodeScreen(it, pass) })
+        navigateTo(screenFactory = {
+            FullscreenBarcodeScreen(it, pass, pass.codes.first().id)
+        })
     }
 
     private fun openScanner() {
@@ -156,14 +159,15 @@ private fun StatusText(text: String) {
 /** One pass row: the name with a subtext under it — the start date (+ time),
  *  or the issuer as fallback, or nothing — and the stacked-code count ("n") to
  *  the right when more than one code sits under the name. All text is white;
- *  the count matches the name's size. */
+ *  the count matches the name's size. The vertical padding is snug so six
+ *  rows with subtexts fit the screen (feedback 2026-08-30). */
 @Composable
 private fun PassRow(pass: Pass, count: Int, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .lightClickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {

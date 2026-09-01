@@ -61,7 +61,8 @@ private fun formatTime(time: LocalTime): String = DISPLAY_TIME.format(time)
  * the HOUR / MIN labels sit above their columns, centered — the columns are a
  * centered pair (feedback 2026-08-24). The list opens scrolled so the current
  * value is vertically centered in its column. Tap a value to select it; CLEAR
- * stores "", SAVE stores "HH:mm"; X (or the top-bar back) cancels.
+ * stores "", SAVE stores "HH:mm"; X cancels (no top-bar back — feedback
+ * 2026-08-30).
  */
 class TimePickerScreen(
     sealedActivity: SealedLightActivity,
@@ -82,12 +83,9 @@ class TimePickerScreen(
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
+                // No top-bar back — X in the bottom bar cancels (feedback
+                // 2026-08-30).
                 LightTopBar(
-                    leftButton = LightBarButton.LightIcon(
-                        icon = LightIcons.BACK,
-                        onClick = { goBack() },
-                        contentDescription = "Cancel",
-                    ),
                     center = LightTopBarCenter.Text(text = title),
                 )
                 // The two 0..59 / 0..23 columns each fill half the panel, their
