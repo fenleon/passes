@@ -204,9 +204,10 @@ class DatePickerScreen(
 }
 
 /** The calendar month grid: weekday letters + a 7×6 day grid. Everything is
- *  white (content color); the selected day carries a thin underline, today a
- *  round dot under the number that hides while today is selected (feedback
- *  2026-08-25). Tapping a day picks it. */
+ *  white (content color); the SELECTED day carries a round dot under the
+ *  number and TODAY the thin underline (feedback 2026-09-21 — swapped from
+ *  the 2026-08-25 marks; the selected state wins when today is picked).
+ *  Tapping a day picks it. */
 @Composable
 private fun MonthGrid(
     month: LocalDate,
@@ -262,18 +263,18 @@ private fun MonthGrid(
                                 LightText(
                                     text = dayNumber.toString(),
                                     variant = LightTextVariant.Copy,
-                                    modifier = if (day == selected) {
+                                    modifier = if (day == today && day != selected) {
                                         Modifier.thinUnderline()
                                     } else {
                                         Modifier
                                     },
                                 )
-                                // Today carries a round dot under the number,
-                                // not an underline — the dot disappears when
-                                // today is the selected day, which marks itself
-                                // with the underline instead (feedback
-                                // 2026-08-25).
-                                if (day == today && day != selected) {
+                                // The SELECTED day carries a round dot under
+                                // the number; TODAY carries the thin
+                                // underline instead (feedback 2026-09-21 —
+                                // swapped from the 2026-08-25 marks). The
+                                // selected state wins when today is picked.
+                                if (day == selected) {
                                     Spacer(Modifier.height(0.25f.gridUnitsAsDp()))
                                     Box(
                                         modifier = Modifier

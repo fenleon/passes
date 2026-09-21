@@ -37,13 +37,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The delete confirmation — opened by the code fullscreen's bottom-left DELETE
- * (the trash icon). A single-code pass confirms simply: the pass name as the
- * title, "Are you sure you'd like to remove this pass?", one centered
- * **CONFIRM**. A **stacked** pass asks (feedback 2026-08-30): the name, "Do you
- * want to remove x of n passes or all passes in this stack?" (x = the code
- * being viewed), and two stacked buttons — **REMOVE PASS** (just that one code)
- * and **REMOVE ALL** (the whole stack). Back sits top-left and cancels.
+ * The delete confirmation — opened by the code fullscreen's top-right DELETE
+ * (the trash icon). Every pass sees the same layout (feedback 2026-09-21):
+ * the pass name as the title, "Are you sure you'd like to remove this
+ * pass?", and — on a **stacked** pass — two stacked full-width buttons,
+ * **CONFIRM** (removes just the code being viewed) above **REMOVE ALL** (the
+ * whole stack); a single-code pass gets one centered **CONFIRM** bottom-bar
+ * action (the whole pass). Back sits top-left and cancels.
  *
  * Result: `true` when the whole pass was deleted (the fullscreen pops back to
  * the home list), `false` when one stacked code was deleted (the fullscreen
@@ -107,11 +107,11 @@ class DeleteConfirmScreen(
                         onClick = { goBack() },
                         contentDescription = "Keep ${pass.name}",
                     ),
-                    center = if (stacked) null else LightTopBarCenter.Text(text = pass.name),
+                    center = LightTopBarCenter.Text(text = pass.name),
                 )
-                // A single-code pass asks one confirmation (the pass name is
-                // the title); a stacked pass names the pass and asks "x of n" —
-                // the code being viewed — or all (feedback 2026-08-30).
+                // One question for every pass (feedback 2026-09-21); a stacked
+                // pass answers with CONFIRM (the code being viewed) above
+                // REMOVE ALL (the whole stack) below.
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -119,34 +119,15 @@ class DeleteConfirmScreen(
                         .padding(horizontal = 3f.gridUnitsAsDp()),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (stacked) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            LightText(
-                                text = pass.name,
-                                variant = LightTextVariant.Heading,
-                                align = TextAlign.Center,
-                            )
-                            LightText(
-                                text = "Do you want to remove ${currentIndex + 1} of ${pass.codes.size} passes or all passes in this stack?",
-                                variant = LightTextVariant.Copy,
-                                align = TextAlign.Center,
-                                modifier = Modifier.padding(top = 1.5f.gridUnitsAsDp()),
-                            )
-                        }
-                    } else {
-                        LightText(
-                            text = "Are you sure you'd like to remove this pass?",
-                            variant = LightTextVariant.Copy,
-                            align = TextAlign.Center,
-                        )
-                    }
+                    LightText(
+                        text = "Are you sure you'd like to remove this pass?",
+                        variant = LightTextVariant.Copy,
+                        align = TextAlign.Center,
+                    )
                 }
                 if (stacked) {
-                    // Two stacked full-width buttons — REMOVE PASS (the code
-                    // being viewed) above REMOVE ALL (the whole stack) —
-                    // feedback 2026-08-30.
                     Column(modifier = Modifier.navigationBarsPadding()) {
-                        DeleteBarButton("REMOVE PASS") {
+                        DeleteBarButton("CONFIRM") {
                             viewModel.deleteOne(this@DeleteConfirmScreen)
                         }
                         DeleteBarButton("REMOVE ALL") {

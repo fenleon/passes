@@ -44,7 +44,11 @@ object BarcodeRaster {
 
     private const val MIN_TARGET_WIDTH_PX = 240
     private const val MAX_RENDER_PX = 2160
-    private const val QR_MARGIN_MODULES = 4
+    // QR renders with no quiet zone at all (modules run to the white
+    // square's edge — user feedback 2026-09-21; still decodes). Linear
+    // formats keep their spec zones — zxing's decode verification fails
+    // without them; compact formats keep 2.
+    private const val QR_MARGIN_MODULES = 0
     private const val COMPACT_MATRIX_MARGIN_MODULES = 2
     private const val LINEAR_MARGIN_MODULES = 10
     private const val QUIET_ZONE_SIDE_COUNT = 2

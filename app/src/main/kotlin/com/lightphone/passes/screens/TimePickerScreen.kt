@@ -164,7 +164,12 @@ private fun TimeColumn(
             text = label,
             variant = LightTextVariant.Fine,
             align = TextAlign.Center,
-            modifier = Modifier.padding(vertical = 0.5f.gridUnitsAsDp()),
+            // Same end inset as the scroll content's scrollbar gutter, so the
+            // label centers over the NUMBERS, not the raw column (feedback
+            // 2026-09-21).
+            modifier = Modifier
+                .padding(end = 2f.gridUnitsAsDp())
+                .padding(vertical = 0.5f.gridUnitsAsDp()),
         )
         val density = LocalDensity.current
         // Taller rows — room for the selection underline under each value
