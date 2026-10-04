@@ -1,5 +1,10 @@
 # Passes
 
+<p align="center"><a href="https://ko-fi.com/fenleon">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="art/coffee-hand-filled-alpha-white-steam.png"><img src="art/coffee-hand-filled-alpha-white.png" alt="Hand holding Coffee" height="50" style="vertical-align: middle;"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="art/buy-me-a-coffee-alpha-white.png"><img src="art/buy-me-a-coffee-alpha-black.png" alt="Buy Me A Coffee" height="40" style="vertical-align: middle;"></picture>
+  <img src="art/ok-hand-filled-alpha-white.png" alt="OK Hand" height="50" style="vertical-align: middle;"></a></p>
+
 An app for the Light Phone III to store and show codes — boarding passes,
 library cards, memberships, anything a barcode or QR code represents.
 
@@ -90,3 +95,5 @@ verified 2026-08-18). When testing scanning on the emulator, flip it to
 ## License
 
 MIT — see [LICENSE](LICENSE). Original work © Vandam Dinh.
+
+<p align="center">Support my work by leaving me a <a href="https://ko-fi.com/fenleon">tip</a> or <a href="https://github.com/sponsors/fenleon">sponsoring me</a>. A little goes a long way.</p>
