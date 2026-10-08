@@ -44,10 +44,11 @@ object BarcodeRaster {
 
     private const val MIN_TARGET_WIDTH_PX = 240
     private const val MAX_RENDER_PX = 2160
-    // QR renders with no quiet zone at all (modules run to the white
-    // square's edge — user feedback 2026-09-21; still decodes). Linear
-    // formats keep their spec zones — zxing's decode verification fails
-    // without them; compact formats keep 2.
+    // Encoder margins: QR renders with none, the compact matrices keep 2 and
+    // linear formats 10 so zxing's decode verification passes. The verified
+    // raster is then cropped to its content and re-padded with a UNIFORM
+    // 1-module quiet zone for display (feedback 2026-09-21: 0 doesn't scan —
+    // every code carries exactly one border module).
     private const val QR_MARGIN_MODULES = 0
     private const val COMPACT_MATRIX_MARGIN_MODULES = 2
     private const val LINEAR_MARGIN_MODULES = 10
@@ -147,6 +148,8 @@ object BarcodeRaster {
             }
         }
         return Raster(renderWidth, renderHeight, pixels)
+            .trimmedToContent()
+            .withQuietBorder(modulePx)
     }
 
     private fun renderRaster(format: BarcodeFormat, text: String, targetWidth: Int): Raster? {
@@ -189,6 +192,8 @@ object BarcodeRaster {
         val pixels = renderPixels(matrix, width, height, format)
         if (!verify(width, height, pixels, format, text, content)) return null
         return Raster(width, height, pixels)
+            .trimmedToContent()
+            .withQuietBorder(modulePx)
     }
 
     /** Encoder hints: per-format margins + charsets, QR error correction M. */
@@ -344,5 +349,46 @@ object BarcodeRaster {
                 }
             }
         }
+    }
+
+    /**
+     * Crops pure-white border bands (the encoder's per-format quiet zones —
+     * kept through decode verification) so the display border is under our
+     * control, not the encoder's.
+     */
+    private fun Raster.trimmedToContent(): Raster {
+        var top = 0
+        var bottom = height - 1
+        var left = 0
+        var right = width - 1
+        fun rowWhite(y: Int) = (0 until width).all { pixels[y * width + it] == WHITE_PIXEL }
+        fun colWhite(x: Int) = (0 until height).all { pixels[it * width + x] == WHITE_PIXEL }
+        while (top <= bottom && rowWhite(top)) top++
+        while (bottom >= top && rowWhite(bottom)) bottom--
+        while (left <= right && colWhite(left)) left++
+        while (right >= left && colWhite(right)) right--
+        val newWidth = right - left + 1
+        val newHeight = bottom - top + 1
+        if (left == 0 && top == 0 && newWidth == width && newHeight == height) return this
+        if (newWidth <= 0 || newHeight <= 0) return this
+        val out = IntArray(newWidth * newHeight)
+        for (y in 0 until newHeight) {
+            System.arraycopy(pixels, (y + top) * width + left, out, y * newWidth, newWidth)
+        }
+        return Raster(newWidth, newHeight, out)
+    }
+
+    /** Pads [modulePx] pixels of white on every side — the uniform one-module
+     *  quiet zone every rendered code shows (feedback 2026-09-21: a code with
+     *  no border doesn't scan; one module does). */
+    private fun Raster.withQuietBorder(modulePx: Int): Raster {
+        val m = modulePx.coerceAtLeast(1)
+        val newWidth = width + 2 * m
+        val newHeight = height + 2 * m
+        val out = IntArray(newWidth * newHeight) { WHITE_PIXEL }
+        for (y in 0 until height) {
+            System.arraycopy(pixels, y * width, out, (y + m) * newWidth + m, width)
+        }
+        return Raster(newWidth, newHeight, out)
     }
 }

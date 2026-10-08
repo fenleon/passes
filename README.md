@@ -62,24 +62,24 @@ Single-module Gradle project consuming the SDK as an included build:
 
 ```bash
 source tools/env.sh
-tools/build --dir passes :app:assembleDebug
+tools/build --dir passes :tool:assembleDebug
 ```
 
 APK (signed with the SDK dev keystore):
 
-- Tool: `app/build/outputs/apk/debug/app-debug.apk` — `com.lightphone.passes`
+- Tool: `tool/build/outputs/apk/debug/tool-debug.apk` — `com.lightphone.passes`
 
 Release builds (R8, ~14 MB):
 
 ```bash
 tools/build --dir passes -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=768m" \
-  -Dkotlin.daemon.jvmargs="-Xmx2g" :app:assembleRelease
+  -Dkotlin.daemon.jvmargs="-Xmx2g" :tool:assembleRelease
 ```
 
 ## Install & run (emulator)
 
 ```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r tool/build/outputs/apk/debug/tool-debug.apk
 # the tool's camera permission is granted at install; on the emulator:
 adb shell pm grant com.lightphone.passes android.permission.CAMERA
 adb shell am start -n com.lightphone.passes/com.thelightphone.sdk.LightActivity

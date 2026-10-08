@@ -2,11 +2,9 @@ package com.lightphone.passes.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -256,35 +254,34 @@ private fun MonthGrid(
                         contentAlignment = Alignment.Center,
                     ) {
                         if (day != null) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                            ) {
-                                LightText(
-                                    text = dayNumber.toString(),
-                                    variant = LightTextVariant.Copy,
-                                    modifier = if (day == today && day != selected) {
-                                        Modifier.thinUnderline()
-                                    } else {
-                                        Modifier
-                                    },
+                            LightText(
+                                text = dayNumber.toString(),
+                                variant = LightTextVariant.Copy,
+                                modifier = if (day == today && day != selected) {
+                                    Modifier.thinUnderline()
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            // The SELECTED day carries a round dot under the
+                            // number; TODAY carries the thin underline instead
+                            // (feedback 2026-09-21 — swapped from the
+                            // 2026-08-25 marks). The selected state wins when
+                            // today is picked. The dot is anchored to the cell
+                            // bottom as an overlay so it never shifts the
+                            // number (feedback 2026-09-21: the dot pushed the
+                            // number up off center).
+                            if (day == selected) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 0.6f.gridUnitsAsDp())
+                                        .size(0.25f.gridUnitsAsDp())
+                                        .background(
+                                            LightThemeTokens.colors.content,
+                                            CircleShape,
+                                        ),
                                 )
-                                // The SELECTED day carries a round dot under
-                                // the number; TODAY carries the thin
-                                // underline instead (feedback 2026-09-21 —
-                                // swapped from the 2026-08-25 marks). The
-                                // selected state wins when today is picked.
-                                if (day == selected) {
-                                    Spacer(Modifier.height(0.25f.gridUnitsAsDp()))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(0.25f.gridUnitsAsDp())
-                                            .background(
-                                                LightThemeTokens.colors.content,
-                                                CircleShape,
-                                            ),
-                                    )
-                                }
                             }
                         }
                     }

@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -42,8 +45,9 @@ import kotlinx.coroutines.launch
  * the pass name as the title, "Are you sure you'd like to remove this
  * pass?", and — on a **stacked** pass — two stacked full-width buttons,
  * **CONFIRM** (removes just the code being viewed) above **REMOVE ALL** (the
- * whole stack); a single-code pass gets one centered **CONFIRM** bottom-bar
- * action (the whole pass). Back sits top-left and cancels.
+ * whole stack, re-asked on a second panel: "Are you sure you'd like to remove
+ * all passes in this stack?"); a single-code pass gets one centered **CONFIRM**
+ * bottom-bar action (the whole pass). Back sits top-left and cancels.
  *
  * Result: `true` when the whole pass was deleted (the fullscreen pops back to
  * the home list), `false` when one stacked code was deleted (the fullscreen
@@ -94,6 +98,9 @@ class DeleteConfirmScreen(
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
         val stacked = pass.codes.size > 1
+        // REMOVE ALL asks twice: the second panel re-states the scope
+        // (feedback 2026-09-21); back returns to the first question.
+        var confirmingAll by remember { mutableStateOf(false) }
 
         LightTheme(colors = themeColors) {
             Column(
@@ -104,14 +111,18 @@ class DeleteConfirmScreen(
                 LightTopBar(
                     leftButton = LightBarButton.LightIcon(
                         icon = LightIcons.BACK,
-                        onClick = { goBack() },
+                        onClick = {
+                            if (confirmingAll) confirmingAll = false else goBack()
+                        },
                         contentDescription = "Keep ${pass.name}",
                     ),
                     center = LightTopBarCenter.Text(text = pass.name),
                 )
                 // One question for every pass (feedback 2026-09-21); a stacked
                 // pass answers with CONFIRM (the code being viewed) above
-                // REMOVE ALL (the whole stack) below.
+                // REMOVE ALL (the whole stack) below. REMOVE ALL swaps the
+                // panel for a single CONFIRM asking again about the whole
+                // stack (feedback 2026-09-21).
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -120,18 +131,22 @@ class DeleteConfirmScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     LightText(
-                        text = "Are you sure you'd like to remove this pass?",
+                        text = if (confirmingAll) {
+                            "Are you sure you'd like to remove all passes in this stack?"
+                        } else {
+                            "Are you sure you'd like to remove this pass?"
+                        },
                         variant = LightTextVariant.Copy,
                         align = TextAlign.Center,
                     )
                 }
-                if (stacked) {
+                if (stacked && !confirmingAll) {
                     Column(modifier = Modifier.navigationBarsPadding()) {
                         DeleteBarButton("CONFIRM") {
                             viewModel.deleteOne(this@DeleteConfirmScreen)
                         }
                         DeleteBarButton("REMOVE ALL") {
-                            viewModel.deleteAll(this@DeleteConfirmScreen)
+                            confirmingAll = true
                         }
                     }
                 } else {

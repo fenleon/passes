@@ -70,8 +70,9 @@ private const val SWIPE_THRESHOLD_PX = 60f
 
 /**
  * A pass's code full-screen — the pass's primary view, opened straight from the
- * home list. The code sits on a 1:1 white square sized so the space around it
- * is equidistant to the top bar and the bottom bar.
+ * home list. The code sits on a white card that hugs the code's aspect ratio —
+ * square formats keep the 1:1 square, rectangular codes a hugging card — sized
+ * so the space around it is equidistant to the top bar and the bottom bar.
  *
  * The top bar holds **back in the top-left** (dismisses to the home list), **the
  * pass name as the title**, and **DELETE in the top-right** (the trash icon,
@@ -88,9 +89,9 @@ private const val SWIPE_THRESHOLD_PX = 60f
  * the bars hide (their space stays reserved — the code never moves) and the
  * window brightness pins to max; tap again to collapse (the black back arrow
  * top-left also collapses). The code itself
- * always renders **black-on-white** — the raw raster on a white square, no
- * theme mapping, no extra white border. Bitmaps come from the
- * shared [BarcodeCache], so opening a code is instant.
+ * always renders **black-on-white** — the raw raster on the white card, no
+ * theme mapping, with the raster's uniform 1-module quiet zone as the border.
+ * Bitmaps come from the shared [BarcodeCache], so opening a code is instant.
  */
 class BarcodeViewModel(
     private val passId: String,
@@ -331,14 +332,29 @@ class FullscreenBarcodeScreen(
                         maxWidth - 5.26f.gridUnitsAsDp(),
                         maxHeight,
                     ) - 2f.gridUnitsAsDp()).coerceAtLeast(0.dp)
+                    // The white card hugs the code's aspect (feedback
+                    // 2026-09-21: rectangular codes sat centered on a big
+                    // white square) — square formats keep the square, 1D/2D
+                    // rectangles get a card of the raster's ratio. The
+                    // raster carries the uniform 1-module quiet zone, so the
+                    // border stays while the card hugs.
+                    val bitmap = barcode
+                    val cardModifier = if (bitmap != null) {
+                        val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                        if (ratio >= 1f) {
+                            Modifier.size(side, side / ratio)
+                        } else {
+                            Modifier.size(side * ratio, side)
+                        }
+                    } else {
+                        Modifier.size(side)
+                    }
                     Box(
-                        modifier = Modifier
-                            .size(side)
+                        modifier = cardModifier
                             .background(Color.White)
                             .lightClickable(onClick = { expanded = !expanded }),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val bitmap = barcode
                         when {
                             bitmap != null -> Image(
                                 bitmap = bitmap,

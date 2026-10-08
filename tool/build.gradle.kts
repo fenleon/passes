@@ -8,12 +8,17 @@ plugins {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = rootProject.ext["compileSdk"] as Int
 
     signingConfigs {
-        // Workspace dev signing (same key as the SDK tools/emulator).
+        // Workspace dev signing (same key as the SDK tools/emulator). Inside
+        // an SDK checkout (Light's Tool Library builder stages this tool/
+        // module into the baked-in SDK repo) the keys live at ../sdk/keys.
         create("lightsdkDev") {
-            storeFile = file("../../light-sdk/sdk/keys/lightsdk-dev.jks")
+            storeFile = file(
+                listOf("../../light-sdk/sdk/keys/lightsdk-dev.jks", "../sdk/keys/lightsdk-dev.jks")
+                    .map(::file).first { it.exists() }
+            )
             storePassword = "android"
             keyAlias = "lightsdk-dev"
             keyPassword = "android"
@@ -21,11 +26,16 @@ android {
     }
 
     defaultConfig {
-        minSdk = 34
-        targetSdk = 36
+        minSdk = rootProject.ext["minSdk"] as Int
+        targetSdk = rootProject.ext["targetSdk"] as Int
 
         // Consumed by the plugin's generated manifest (SDK_VERSION metadata).
         manifestPlaceholders["sdkVersion"] = property("sdkVersion") as String
+
+        // The two runtimes this tool ships for: the LP3 (arm64) and the dev
+        // emulator (x86_64) — drops zxing-cpp's x86 + armeabi-v7a libs
+        // (~3 MB, release feedback 2026-09-21).
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     buildTypes {
@@ -54,13 +64,19 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(rootProject.ext["jvmTarget"] as String))
     }
 }
 
+// Inside an SDK checkout the SDK modules are sibling projects; in this
+// workspace the included ../light-sdk build substitutes the module artifacts.
+val inSdkRepo = file("../sdk").exists()
+
 dependencies {
-    // SDK modules come from the included ../light-sdk build (see settings.gradle.kts).
-    implementation(libs.sdk.client)   // LightScreen, LightActivity
+    implementation(
+        if (inSdkRepo) project(":sdk:client")
+        else "com.thelightphone:sdk-client"   // LightScreen, LightActivity
+    )
     implementation(libs.kotlinx.coroutines)
     // Storage + barcode rendering moved in-process from the (now merged) :server
     // module — ZXing is on the tool plugin's allowlist.
