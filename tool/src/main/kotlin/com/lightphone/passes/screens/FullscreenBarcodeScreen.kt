@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -219,10 +218,6 @@ class FullscreenBarcodeScreen(
         // bar used to re-center the square lower) and the window brightness
         // pins to max while expanded (feedback 2026-09-10).
         var expanded by remember { mutableStateOf(false) }
-        DisposableEffect(expanded) {
-            if (expanded) setScreenBrightness(1f)
-            onDispose { if (expanded) setScreenBrightness(null) }
-        }
 
         LightTheme(colors = themeColors) {
             Column(

@@ -16,7 +16,6 @@ import com.thelightphone.sdk.ui.LightTextInputEditor
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
-import com.thelightphone.sdk.ui.scaledForScreenHeight
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -52,9 +51,6 @@ class DataEntryScreen(
                 ),
             )
         }
-        val inputStyle = LightThemeTokens.typography.heading
-            .copy(color = LightThemeTokens.colors.content)
-            .scaledForScreenHeight()
         val textState = rememberTextFieldState("")
         val scope = rememberCoroutineScope()
 
@@ -83,11 +79,8 @@ class DataEntryScreen(
                 onBack = { goBack() },
                 modifier = Modifier.background(LightThemeTokens.colors.background),
                 submitLabel = "SAVE",
-                bottomAligned = true,
-                submitOnReturn = true,
                 singleLine = true,
                 initialCaps = true,
-                inputTextStyle = inputStyle,
             )
         }
     }

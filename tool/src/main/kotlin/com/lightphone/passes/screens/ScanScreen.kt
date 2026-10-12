@@ -14,9 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.lightphone.passes.PassesClient
-import com.lightphone.passes.StoredSymbol
-import com.thelightphone.sdk.LightBarcodeScanner
-import com.thelightphone.sdk.LightScannedBarcode
+import com.thelightphone.sdk.LightQrCodeScanner
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
 import com.thelightphone.sdk.ui.LightBarButton
@@ -24,14 +22,13 @@ import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
-import java.util.Base64
 
 /**
- * Add a pass by scanning a code (SDK camera scanner — QR, Aztec, PDF417, Data
- * Matrix, Code 128, EAN/UPC, ...). The bottom bar offers "TYPE A CODE" to
- * switch to manual entry instead. The scanned format is preserved so the code
- * renders back in the same symbol; binary payloads (Aztec/PDF417 ticketing
- * codes) keep their raw bytes.
+ * Add a pass by scanning a code (the SDK's camera scanner). The bottom bar
+ * offers "TYPE A CODE" to switch to manual entry instead. Scans are stored as
+ * QR — the upstream scanner decodes QR only; other symbologies return to the
+ * scanner once the SDK gains multi-format support (the renderers here already
+ * handle all 13 ZXing formats).
  *
  * With [addToPassId] set ("add to this pass" from the code fullscreen's `+`),
  * a scanned/typed code is stacked straight under that pass — no naming step —
@@ -46,21 +43,20 @@ class ScanScreen(
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
-        var pendingScan by remember { mutableStateOf<LightScannedBarcode?>(null) }
+        var pendingScan by remember { mutableStateOf<String?>(null) }
 
         // A code was decoded: move straight to naming it (or, in add-to-pass
         // mode, stack it under the pass without asking for a name).
         LaunchedEffect(pendingScan) {
-            val code = pendingScan ?: return@LaunchedEffect
+            val data = pendingScan ?: return@LaunchedEffect
             val target = addToPassId
             if (target != null) {
                 val ok = PassesClient.addCode(
                     passId = target,
-                    data = code.value,
-                    rawData = rawDataFor(code),
-                    type = code.formatName,
+                    data = data,
+                    rawData = null,
+                    type = "qr",
                     typed = false,
-                    symbol = symbolFor(code),
                 )
                 if (ok) goBack(true)
             } else {
@@ -68,11 +64,10 @@ class ScanScreen(
                     screenFactory = {
                         NameScreen(
                             it,
-                            code.value,
-                            rawDataFor(code),
-                            code.formatName,
+                            data,
+                            null,
+                            "qr",
                             typed = false,
-                            symbol = symbolFor(code),
                         )
                     },
                 ) { saved -> if (saved == true) goBack(true) }
@@ -88,7 +83,7 @@ class ScanScreen(
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
-                LightBarcodeScanner(
+                LightQrCodeScanner(
                     title = "Scan Code",
                     onScanned = { pendingScan = it },
                     onBack = { goBack() },
@@ -113,24 +108,5 @@ class ScanScreen(
                 )
             }
         }
-    }
-
-    /** Aztec/PDF417 are byte-oriented: keep the raw payload so the renderer can
-     *  reproduce the symbol 1:1. Text formats (QR, linear codes) just keep the
-     *  decoded string. */
-    private fun rawDataFor(code: LightScannedBarcode): String? {
-        val bytes = code.rawBytes ?: return null
-        return if (code.formatName == "aztec" || code.formatName == "pdf417") {
-            Base64.getEncoder().encodeToString(bytes)
-        } else {
-            null
-        }
-    }
-
-    /** The exact decoded symbol grid, so the stored pass renders the original
-     *  barcode instead of a re-encode. */
-    private fun symbolFor(code: LightScannedBarcode): StoredSymbol? {
-        val symbol = code.symbol ?: return null
-        return StoredSymbol(symbol.width, symbol.height, symbol.data)
     }
 }

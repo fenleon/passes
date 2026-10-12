@@ -130,7 +130,6 @@ class DetailsScreen(
                     // EDIT opens the full edit form — the only way to fill a
                     // field that is still empty (tapping values edits what is
                     // visible).
-                    textVariant = LightTextVariant.Button,
                     rightButton = LightBarButton.Text(
                         text = "EDIT",
                         onClick = { openEdit() },

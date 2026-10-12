@@ -43,7 +43,6 @@ import com.thelightphone.sdk.ui.LightTopBar
 import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
-import com.thelightphone.sdk.ui.scaledForScreenHeight
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -417,13 +416,6 @@ class FieldEditorScreen(
                 ),
             )
         }
-        val inputStyle = if (codeEntry) {
-            LightThemeTokens.typography.heading
-                .copy(color = LightThemeTokens.colors.content)
-                .scaledForScreenHeight()
-        } else {
-            null
-        }
         val textState = rememberTextFieldState(initial)
 
         LightTheme(colors = themeColors) {
@@ -437,10 +429,7 @@ class FieldEditorScreen(
                 submitLabel = "SAVE",
                 // SAVE sits centered below the keyboard (feedback 2026-08-25 —
                 // was bottom-right).
-                bottomAligned = !codeEntry,
-                centered = codeEntry,
                 singleLine = singleLine,
-                inputTextStyle = inputStyle,
             )
         }
     }

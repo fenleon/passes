@@ -1,12 +1,10 @@
 package com.lightphone.passes
 
-import com.thelightphone.sdk.shared.LightServiceMethod
-
 /** A pass as stored: a name, shared details, and stacked codes. */
-typealias Pass = LightServiceMethod.GetPasses.Pass
+typealias Pass = StoredPass
 
 /** One barcode of a pass. */
-typealias Code = LightServiceMethod.GetPasses.Code
+typealias Code = StoredCode
 
 /**
  * The single-module (2026-08-18) data facade: storage + barcode rendering now
@@ -17,28 +15,7 @@ typealias Code = LightServiceMethod.GetPasses.Code
 object PassesClient {
 
     suspend fun getPasses(): List<Pass> =
-        PassRepository.displayOrder().map { pass ->
-            Pass(
-                id = pass.id,
-                name = pass.name,
-                codes = pass.codes.map { code ->
-                    Code(
-                        id = code.id,
-                        data = code.data,
-                        rawData = code.rawData,
-                        type = code.type,
-                        typed = code.typed,
-                    )
-                },
-                issuer = pass.issuer,
-                date = pass.date,
-                endDate = pass.endDate,
-                startTime = pass.startTime,
-                endTime = pass.endTime,
-                location = pass.location,
-                notes = pass.notes,
-            )
-        }
+        PassRepository.displayOrder()
 
     /** Creates a new pass with its first code. */
     suspend fun addPass(

@@ -19,7 +19,6 @@ import com.thelightphone.sdk.ui.LightTextInputEditor
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
-import com.thelightphone.sdk.ui.scaledForScreenHeight
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -84,9 +83,6 @@ class NameScreen(
                 ),
             )
         }
-        val inputStyle = LightThemeTokens.typography.heading
-            .copy(color = LightThemeTokens.colors.content)
-            .scaledForScreenHeight()
         val textState = rememberTextFieldState("")
 
         LightTheme(colors = themeColors) {
@@ -98,11 +94,8 @@ class NameScreen(
                 onBack = { goBack() },
                 modifier = Modifier.background(LightThemeTokens.colors.background),
                 submitLabel = "SAVE",
-                bottomAligned = true,
-                submitOnReturn = true,
                 initialCaps = true,
                 singleLine = true,
-                inputTextStyle = inputStyle,
             )
         }
     }
