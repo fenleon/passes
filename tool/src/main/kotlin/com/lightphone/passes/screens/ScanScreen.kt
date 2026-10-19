@@ -13,22 +13,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.util.Base64
 import com.lightphone.passes.PassesClient
 import com.thelightphone.sdk.LightQrCodeScanner
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
+import com.thelightphone.sdk.ui.LightBarcodeFormats
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
+import com.thelightphone.sdk.ui.LightScannedBarcode
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 
 /**
  * Add a pass by scanning a code (the SDK's camera scanner). The bottom bar
- * offers "TYPE A CODE" to switch to manual entry instead. Scans are stored as
- * QR — the upstream scanner decodes QR only; other symbologies return to the
- * scanner once the SDK gains multi-format support (the renderers here already
- * handle all 13 ZXing formats).
+ * offers "TYPE A CODE" to switch to manual entry instead. The scanner decodes
+ * all 13 ZXing symbologies ([LightBarcodeFormats.COMMON]); a scanned code is
+ * stored under its scanned format with its raw payload bytes (binary payloads
+ * like Aztec ticketing codes keep their bytes; the renderers re-encode 1:1).
  *
  * With [addToPassId] set ("add to this pass" from the code fullscreen's `+`),
  * a scanned/typed code is stacked straight under that pass — no naming step —
@@ -43,19 +46,21 @@ class ScanScreen(
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
-        var pendingScan by remember { mutableStateOf<String?>(null) }
+        var pendingScan by remember { mutableStateOf<LightScannedBarcode?>(null) }
 
         // A code was decoded: move straight to naming it (or, in add-to-pass
         // mode, stack it under the pass without asking for a name).
         LaunchedEffect(pendingScan) {
-            val data = pendingScan ?: return@LaunchedEffect
+            val scan = pendingScan ?: return@LaunchedEffect
+            val type = scannedTypeName(scan.format) ?: return@LaunchedEffect
+            val rawData = scan.rawBytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
             val target = addToPassId
             if (target != null) {
                 val ok = PassesClient.addCode(
                     passId = target,
-                    data = data,
-                    rawData = null,
-                    type = "qr",
+                    data = scan.value,
+                    rawData = rawData,
+                    type = type,
                     typed = false,
                 )
                 if (ok) goBack(true)
@@ -64,9 +69,9 @@ class ScanScreen(
                     screenFactory = {
                         NameScreen(
                             it,
-                            data,
-                            null,
-                            "qr",
+                            scan.value,
+                            rawData,
+                            type,
                             typed = false,
                         )
                     },
@@ -85,7 +90,9 @@ class ScanScreen(
             ) {
                 LightQrCodeScanner(
                     title = "Scan Code",
-                    onScanned = { pendingScan = it },
+                    onScanned = {},
+                    formats = LightBarcodeFormats.COMMON,
+                    onScannedBarcode = { pendingScan = it },
                     onBack = { goBack() },
                     modifier = Modifier.background(LightThemeTokens.colors.background),
                 )
@@ -109,4 +116,23 @@ class ScanScreen(
             }
         }
     }
+}
+
+/** Scanned [LightBarcodeFormats] constant → the stored type name (all 13
+ *  COMMON symbologies map; anything else can't be scanned). */
+private fun scannedTypeName(format: Int): String? = when (format) {
+    LightBarcodeFormats.QR -> "qr"
+    LightBarcodeFormats.AZTEC -> "aztec"
+    LightBarcodeFormats.EAN_13 -> "ean13"
+    LightBarcodeFormats.EAN_8 -> "ean8"
+    LightBarcodeFormats.PDF417 -> "pdf417"
+    LightBarcodeFormats.UPC_E -> "upc_e"
+    LightBarcodeFormats.DATA_MATRIX -> "datamatrix"
+    LightBarcodeFormats.CODE_39 -> "code39"
+    LightBarcodeFormats.CODE_93 -> "code93"
+    LightBarcodeFormats.ITF -> "itf14"
+    LightBarcodeFormats.CODABAR -> "codabar"
+    LightBarcodeFormats.CODE_128 -> "code128"
+    LightBarcodeFormats.UPC_A -> "upc_a"
+    else -> null
 }
