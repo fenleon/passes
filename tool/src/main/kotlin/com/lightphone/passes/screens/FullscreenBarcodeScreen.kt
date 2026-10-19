@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -67,6 +68,20 @@ import kotlinx.coroutines.launch
 /** Drag distance (px) that counts as a swipe between codes. */
 private const val SWIPE_THRESHOLD_PX = 60f
 
+/** Inverts the raster's colors (c → 255 − c): the black-on-white PNG renders
+ *  white-on-black — the collapsed view's default. (Android's ColorMatrix
+ *  runs in 0–255 space — the offset must be 255, not 1.) */
+private val INVERT_FILTER = ColorFilter.colorMatrix(
+    ColorMatrix(
+        floatArrayOf(
+            -1f, 0f, 0f, 0f, 255f,
+            0f, -1f, 0f, 0f, 255f,
+            0f, 0f, -1f, 0f, 255f,
+            0f, 0f, 0f, 1f, 0f,
+        ),
+    ),
+)
+
 /**
  * A pass's code full-screen — the pass's primary view, opened straight from the
  * home list. The code sits on a white card that hugs the code's aspect ratio —
@@ -82,14 +97,13 @@ private const val SWIPE_THRESHOLD_PX = 60f
  * **small `+` the size of the dots sits under the column** (tapping it or
  * swiping up past the last code opens the scanner in add-to-pass mode; hidden
  * at the 10-code stack cap and in the expanded state). The bottom bar is
- * **VIEW DETAILS** (opens the details panel). **Tapping the code toggles the
- * inverted view**: the whole back panel turns white (the code renders
- * black-on-white), the dots invert (filled ⇄ hollow, black), the `+` hides,
- * the bars hide (their space stays reserved — the code never moves) and the
- * window brightness pins to max; tap again to collapse (the black back arrow
- * top-left also collapses). The code itself
- * always renders **black-on-white** — the raw raster on the white card, no
- * theme mapping, with the raster's uniform 1-module quiet zone as the border.
+ * **VIEW DETAILS** (opens the details panel). The code renders **inverted by
+ * default** — white modules on a black card (the black-on-white PNG run
+ * through [INVERT_FILTER]) — and **tapping the code toggles the normal
+ * black-on-white view**: the whole back panel turns white (the code renders
+ * black-on-white), the dots invert (filled ⇄ hollow, black), the `+` hides
+ * and the bars hide (their space stays reserved — the code never moves); tap
+ * again to collapse (the black back arrow top-left also collapses).
  * Bitmaps come from the shared [BarcodeCache], so opening a code is instant.
  */
 class BarcodeViewModel(
@@ -308,8 +322,9 @@ class FullscreenBarcodeScreen(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    // The code always renders black-on-white — the raw raster
-                    // on a white square, sized so the space around it is
+                    // The code renders inverted by default — white modules
+                    // on a black card (the raw black-on-white raster through
+                    // [INVERT_FILTER]) — sized so the space around it is
                     // equidistant to the title, the bar, and the gutters (a
                     // screen-width square collides with the title). No
                     // padding inside the square: the raster carries its own
@@ -321,8 +336,8 @@ class FullscreenBarcodeScreen(
                     // pitch is the 0.85-gu dot + G, so the card edge
                     // lands at 1 + 2G + d − 1 gu extra → extra shrink =
                     // 5.26 gu). Tapping the
-                    // code toggles the expanded (inverted) view (only the
-                    // code and the dots remain; tap again returns).
+                    // code toggles the normal black-on-white view (the white
+                    // panel; tap again returns).
                     val side = (minOf(
                         maxWidth - 5.26f.gridUnitsAsDp(),
                         maxHeight,
@@ -346,7 +361,11 @@ class FullscreenBarcodeScreen(
                     }
                     Box(
                         modifier = cardModifier
-                            .background(Color.White)
+                            // Collapsed (the default): the raster renders
+                            // inverted — white modules on a black card.
+                            // Expanded: the normal black-on-white raster
+                            // on white.
+                            .background(if (expanded) Color.White else Color.Black)
                             .lightClickable(onClick = { expanded = !expanded }),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -355,18 +374,21 @@ class FullscreenBarcodeScreen(
                                 bitmap = bitmap,
                                 contentDescription = "Barcode for ${pass.name}",
                                 contentScale = ContentScale.Fit,
+                                colorFilter = if (expanded) null else INVERT_FILTER,
                                 modifier = Modifier.fillMaxSize(),
                             )
 
                             barcodeError -> LightText(
                                 text = "Unable to render this barcode.",
                                 variant = LightTextVariant.Copy,
+                                color = if (expanded) null else Color.White,
                                 modifier = Modifier.padding(24.dp),
                             )
 
                             else -> LightText(
                                 text = if (loading) "Generating…" else "",
                                 variant = LightTextVariant.Copy,
+                                color = if (expanded) null else Color.White,
                                 modifier = Modifier.padding(24.dp),
                             )
                         }

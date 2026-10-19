@@ -1,7 +1,7 @@
 [tool]
 id = "com.lightphone.passes"
 label = "Passes"
-versionCode = 81
+versionCode = 82
 versionName = "1.0.1"
 # The tool scans QR codes itself with the SDK's LightQrCodeScanner; the camera
 # permission is requested at runtime through the serverPackage's LightSdkService
