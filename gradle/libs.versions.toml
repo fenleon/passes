@@ -5,7 +5,7 @@ compose-activity = "1.13.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.8.1"
 zxing = "3.5.3"
-sdk = "0.1.0"
+sdk = "0.2.2"
 
 [libraries]
 compose-activity = { module = "androidx.activity:activity-compose", version.ref = "compose-activity" }
