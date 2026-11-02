@@ -474,7 +474,7 @@ class FullscreenBarcodeScreen(
      *  (see [BarcodeViewModel.markCodeAdded]). */
     private fun openAddCode() {
         navigateTo(screenFactory = { ScanScreen(it, viewModel.pass.value.id) }) { added ->
-            if (added == true) viewModel.markCodeAdded()
+            if (added != null) viewModel.markCodeAdded()
         }
     }
 }

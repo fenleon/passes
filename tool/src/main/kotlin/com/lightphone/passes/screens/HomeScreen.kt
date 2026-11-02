@@ -142,7 +142,18 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
     }
 
     private fun openScanner() {
-        navigateTo(screenFactory = { ScanScreen(it) })
+        navigateTo(screenFactory = { ScanScreen(it) }) { id ->
+            // A new pass was created: open its panel straight away.
+            if (id != null) {
+                viewModel.viewModelScope.launch {
+                    PassesClient.getPasses().firstOrNull { it.id == id }?.let { pass ->
+                        navigateTo(screenFactory = {
+                            FullscreenBarcodeScreen(it, pass, pass.codes.first().id)
+                        })
+                    }
+                }
+            }
+        }
     }
 }
 

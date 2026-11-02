@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import android.util.Base64
 import com.lightphone.passes.PassesClient
+import com.lightphone.passes.StoredSymbol
 import com.thelightphone.sdk.LightQrCodeScanner
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
@@ -35,13 +36,13 @@ import com.thelightphone.sdk.ui.LightThemeTokens
  *
  * With [addToPassId] set ("add to this pass" from the code fullscreen's `+`),
  * a scanned/typed code is stacked straight under that pass — no naming step —
- * and the screen pops with `true` so the fullscreen can refresh and show the
+ * and the screen pops with the pass id so the fullscreen can refresh and show the
  * new code.
  */
 class ScanScreen(
     sealedActivity: SealedLightActivity,
     private val addToPassId: String? = null,
-) : SimpleLightScreen<Boolean>(sealedActivity) {
+) : SimpleLightScreen<String>(sealedActivity) {
 
     @Composable
     override fun Content() {
@@ -62,8 +63,9 @@ class ScanScreen(
                     rawData = rawData,
                     type = type,
                     typed = false,
+                    symbol = scan.symbolFor(),
                 )
-                if (ok) goBack(true)
+                if (ok) goBack(addToPassId)
             } else {
                 navigateTo(
                     screenFactory = {
@@ -73,9 +75,10 @@ class ScanScreen(
                             rawData,
                             type,
                             typed = false,
+                            symbol = scan.symbolFor(),
                         )
                     },
-                ) { saved -> if (saved == true) goBack(true) }
+                ) { id -> if (id != null) goBack(id) }
             }
         }
 
@@ -107,7 +110,7 @@ class ScanScreen(
                             onClick = {
                                 navigateTo(
                                     screenFactory = { DataEntryScreen(it, addToPassId) },
-                                ) { saved -> if (saved == true) goBack(true) }
+                                ) { id -> if (id != null) goBack(id) }
                             },
                         ),
                         null,
@@ -115,6 +118,13 @@ class ScanScreen(
                 )
             }
         }
+    }
+
+    /** The exact decoded symbol grid, so the stored pass renders the original
+     *  barcode instead of a re-encode. */
+    private fun LightScannedBarcode.symbolFor(): StoredSymbol? {
+        val symbol = symbol ?: return null
+        return StoredSymbol(symbol.width, symbol.height, symbol.data)
     }
 }
 

@@ -29,19 +29,20 @@ class NameViewModel(
     private val type: String,
     private val typed: Boolean,
     private val symbol: StoredSymbol? = null,
-) : LightViewModel<Boolean>() {
+) : LightViewModel<String>() {
 
     val saving = MutableStateFlow(false)
 
-    fun save(name: String, screen: SimpleLightScreen<Boolean>) {
+    fun save(name: String, screen: SimpleLightScreen<String>) {
         if (saving.value) return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             saving.value = true
-            val ok = PassesClient.addPass(trimmed, data, rawData, type, typed, symbol)
+            val pass = PassesClient.addPass(trimmed, data, rawData, type, typed, symbol)
             saving.value = false
-            if (ok) screen.goBack(true)
+            // Pops with the new pass's id so the caller can open its panel.
+            if (pass != null) screen.goBack(pass.id)
             // On a failed save stay on the editor; the user can submit again.
         }
     }
@@ -59,7 +60,7 @@ class NameScreen(
     private val type: String,
     private val typed: Boolean,
     private val symbol: StoredSymbol? = null,
-) : LightScreen<Boolean, NameViewModel>(sealedActivity) {
+) : LightScreen<String, NameViewModel>(sealedActivity) {
 
     override val viewModelClass: Class<NameViewModel>
         get() = NameViewModel::class.java

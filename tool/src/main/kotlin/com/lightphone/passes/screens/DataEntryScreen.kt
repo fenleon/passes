@@ -28,12 +28,12 @@ import kotlinx.coroutines.launch
  * as QR — the only sensible format for arbitrary text.
  *
  * With [addToPassId] set, the typed code is stacked straight under that pass
- * (typed, so its text shows under the barcode) and the screen pops with `true`.
+ * (typed, so its text shows under the barcode) and the screen pops with the pass id.
  */
 class DataEntryScreen(
     sealedActivity: SealedLightActivity,
     private val addToPassId: String? = null,
-) : SimpleLightScreen<Boolean>(sealedActivity) {
+) : SimpleLightScreen<String>(sealedActivity) {
 
     @Composable
     override fun Content() {
@@ -66,14 +66,14 @@ class DataEntryScreen(
                     if (target != null) {
                         scope.launch {
                             val ok = PassesClient.addCode(target, text, null, "qr", typed = true)
-                            if (ok) goBack(true)
+                            if (ok) goBack(addToPassId)
                         }
                     } else {
                         navigateTo(
                             screenFactory = {
                                 NameScreen(it, text, null, "qr", typed = true)
                             },
-                        ) { saved -> if (saved == true) goBack(true) }
+                        ) { id -> if (id != null) goBack(id) }
                     }
                 },
                 onBack = { goBack() },

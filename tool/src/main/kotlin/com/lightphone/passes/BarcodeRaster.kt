@@ -208,12 +208,15 @@ object BarcodeRaster {
             // per-side quiet zone; pad linear symbols explicitly below.
             else -> 0
         }
-        // Binary payloads (e.g. a KlimaTicket Aztec) map bytes 1:1 via Latin-1.
+        // Binary payloads (e.g. a KlimaTicket Aztec) map bytes 1:1 via Latin-1;
+        // QR/DataMatrix too — UTF-8 would split bytes ≥ 0x80 into two and
+        // corrupt the round-trip.
         when (format) {
             BarcodeFormat.AZTEC, BarcodeFormat.PDF_417 ->
                 hints[EncodeHintType.CHARACTER_SET] = "ISO-8859-1"
             BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX ->
-                hints[EncodeHintType.CHARACTER_SET] = "UTF-8"
+                hints[EncodeHintType.CHARACTER_SET] =
+                    if (content.any { it.code > 0x7F }) "ISO-8859-1" else "UTF-8"
             else -> Unit
         }
         if (format == BarcodeFormat.QR_CODE) {

@@ -25,8 +25,8 @@ object PassesClient {
         type: String,
         typed: Boolean = false,
         symbol: StoredSymbol? = null,
-    ): Boolean =
-        PassRepository.add(name, data, rawData, type, typed, symbol) != null
+    ): Pass? =
+        PassRepository.add(name, data, rawData, type, typed, symbol)
 
     /** Stacks another code under an existing pass (the code fullscreen's "+"). */
     suspend fun addCode(
